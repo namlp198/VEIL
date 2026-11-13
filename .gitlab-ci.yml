@@ -1,0 +1,23 @@
+# Phase 0: clean build + unit tests. Platform integration tests need real desktops and are tracked in docs/07_TRACEABILITY.md.
+stages: [build, test]
+
+.dotnet:
+  variables:
+    DOTNET_CLI_TELEMETRY_OPTOUT: "1"
+    DOTNET_NOLOGO: "1"
+
+build-test-linux:
+  extends: .dotnet
+  stage: test
+  image: mcr.microsoft.com/dotnet/sdk:10.0
+  script:
+    - dotnet build VEIL.slnx -c Release
+    - dotnet test tests/VEIL.UnitTests -c Release --no-build
+
+build-test-windows:
+  extends: .dotnet
+  stage: test
+  tags: [windows]          # requires a Windows runner; remove the job if none is available
+  script:
+    - dotnet build VEIL.slnx -c Release
+    - dotnet test tests/VEIL.UnitTests -c Release --no-build

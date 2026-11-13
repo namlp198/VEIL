@@ -1,0 +1,6 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <!-- Single source of truth for design tokens; also read by tests and the Avalonia resource dictionary. -->
+    <EmbeddedResource Include="..\..\assets\theme\veil-tokens.json" LogicalName="veil-tokens.json" />
+  </ItemGroup>
+</Project>

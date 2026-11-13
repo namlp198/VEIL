@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>veil</AssemblyName>
+    <RootNamespace>VEIL.App</RootNamespace>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>..\..\assets\icons\veil.ico</ApplicationIcon>
+    <!-- Keep the installer payload lean: English satellite resources only. -->
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+  </PropertyGroup>
+
+  <!-- The windowless flavour (veil-agent.exe) is what starts at logon: no console window, same code. Build with -p:VeilGui=true -->
+  <PropertyGroup Condition="'$(VeilGui)' == 'true'">
+    <OutputType>WinExe</OutputType>
+    <AssemblyName>veil-agent</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia.Desktop" Version="12.1.5" />
+    <ProjectReference Include="..\VEIL.Presentation\VEIL.Presentation.csproj" />
+    <ProjectReference Include="..\VEIL.Application\VEIL.Application.csproj" />
+    <ProjectReference Include="..\VEIL.Infrastructure\VEIL.Infrastructure.csproj" />
+    <ProjectReference Include="..\VEIL.Platform.Windows\VEIL.Platform.Windows.csproj" />
+    <ProjectReference Include="..\VEIL.Platform.Linux.X11\VEIL.Platform.Linux.X11.csproj" />
+  </ItemGroup>
+</Project>

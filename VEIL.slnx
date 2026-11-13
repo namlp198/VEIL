@@ -1,0 +1,15 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/VEIL.App/VEIL.App.csproj" />
+    <Project Path="src/VEIL.Application/VEIL.Application.csproj" />
+    <Project Path="src/VEIL.Domain/VEIL.Domain.csproj" />
+    <Project Path="src/VEIL.Infrastructure/VEIL.Infrastructure.csproj" />
+    <Project Path="src/VEIL.Platform.Abstractions/VEIL.Platform.Abstractions.csproj" />
+    <Project Path="src/VEIL.Platform.Linux.X11/VEIL.Platform.Linux.X11.csproj" />
+    <Project Path="src/VEIL.Platform.Windows/VEIL.Platform.Windows.csproj" />
+    <Project Path="src/VEIL.Presentation/VEIL.Presentation.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/VEIL.UnitTests/VEIL.UnitTests.csproj" />
+  </Folder>
+</Solution>

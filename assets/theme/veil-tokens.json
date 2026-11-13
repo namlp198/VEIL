@@ -1,0 +1,68 @@
+{
+  "name": "VEIL Dark",
+  "version": "1.0",
+  "description": "Hacker/mystic HUD theme. Values were sampled from resources/images (backgrounds, violet/magenta/cyan accents) and checked for WCAG contrast; semantic status colours are chosen, not sampled.",
+  "colors": {
+    "bg.canvas": "#080817",
+    "bg.base": "#07060D",
+    "bg.surface": "#100B1A",
+    "bg.raised": "#1B1030",
+    "bg.panel": "#1D232F",
+
+    "border.subtle": "#2E2D46",
+    "border.strong": "#4A3A7A",
+    "border.focus": "#31F1F4",
+
+    "text.primary": "#E6E1F5",
+    "text.secondary": "#B3ADCC",
+    "text.muted": "#918AAE",
+    "text.link": "#B58CF5",
+    "text.onAccent": "#FFFFFF",
+
+    "accent.primary": "#7A31D6",
+    "accent.primaryHover": "#9235EC",
+    "accent.primaryActive": "#6132A6",
+    "accent.glow": "#AB46EE",
+    "accent.lilac": "#BBA8F4",
+    "accent.cyan": "#31F1F4",
+    "accent.cyanDim": "#48D6E8",
+    "accent.magenta": "#ED75F2",
+    "accent.blue": "#4A8DBF",
+
+    "status.success": "#35D07F",
+    "status.successBg": "#0E2A1D",
+    "status.warning": "#F2B84B",
+    "status.warningBg": "#2E2210",
+    "status.error": "#FF6B86",
+    "status.errorBg": "#34121C",
+    "status.info": "#31F1F4",
+    "status.infoBg": "#0B2A33",
+    "status.neutralBg": "#221E30"
+  },
+  "spacing": { "xs": 4, "sm": 8, "md": 12, "lg": 16, "xl": 24, "xxl": 32 },
+  "radius": { "sm": 4, "md": 8, "lg": 12, "pill": 999 },
+  "font": {
+    "family": "Segoe UI",
+    "familyFallback": "Inter, Roboto, sans-serif",
+    "mono": "Cascadia Mono",
+    "monoFallback": "Consolas, monospace",
+    "sizePt": { "caption": 9, "body": 10.5, "bodyLarge": 12, "title": 16, "display": 28, "timer": 56 },
+    "weight": { "regular": 400, "medium": 500, "semibold": 600 }
+  },
+  "motion": {
+    "fastMs": 120,
+    "baseMs": 200,
+    "slowMs": 400,
+    "pulseMs": 4000,
+    "easing": "cubic-bezier(0.2, 0, 0, 1)",
+    "reducedMotionDisablesAll": true
+  },
+  "component": {
+    "selectorRowHeight": 52,
+    "selectorWidth": 760,
+    "selectorHeight": 480,
+    "pillHeight": 20,
+    "focusRingWidth": 2,
+    "hudRingStrokes": [1, 1, 2]
+  }
+}

@@ -1,0 +1,6 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <ProjectReference Include="../VEIL.Domain/VEIL.Domain.csproj" />
+    <ProjectReference Include="../VEIL.Platform.Abstractions/VEIL.Platform.Abstractions.csproj" />
+  </ItemGroup>
+</Project>

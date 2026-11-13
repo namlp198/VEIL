@@ -1,0 +1,21 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="VEIL.Presentation.VeilApp"
+             RequestedThemeVariant="Dark">
+  <Application.Styles>
+    <FluentTheme>
+      <FluentTheme.Palettes>
+        <!-- Re-colour Fluent's dark palette from the VEIL tokens so stock controls (check boxes, scrollbars, focus) match. -->
+        <ColorPaletteResources x:Key="Dark" Accent="#7A31D6" RegionColor="#07060D" ErrorText="#FF6B86" />
+      </FluentTheme.Palettes>
+    </FluentTheme>
+    <StyleInclude Source="avares://VEIL.Presentation/theme/VeilStyles.axaml" />
+  </Application.Styles>
+  <Application.Resources>
+    <ResourceDictionary>
+      <ResourceDictionary.MergedDictionaries>
+        <ResourceInclude Source="avares://VEIL.Presentation/theme/VeilTokens.axaml" />
+      </ResourceDictionary.MergedDictionaries>
+    </ResourceDictionary>
+  </Application.Resources>
+</Application>

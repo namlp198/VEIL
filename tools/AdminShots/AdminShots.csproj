@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Avalonia.Headless" Version="12.1.5" />
+    <PackageReference Include="Avalonia.Skia" Version="12.1.5" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\VEIL.Presentation\VEIL.Presentation.csproj" />
+    <ProjectReference Include="..\..\src\VEIL.Infrastructure\VEIL.Infrastructure.csproj" />
+  </ItemGroup>
+</Project>

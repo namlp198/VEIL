@@ -1,0 +1,483 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:VEIL.Presentation.ViewModels"
+        x:Class="VEIL.Presentation.Views.AdminWindow"
+        Title="VEIL Settings"
+        Width="1180" Height="780" MinWidth="900" MinHeight="600"
+        Background="{DynamicResource Brush.bg.base}"
+        WindowStartupLocation="CenterScreen">
+
+  <Window.Styles>
+    <!-- The drop hint eases in and out (0.18 s) instead of snapping; it never takes the pointer, so it cannot get in the way. -->
+    <Style Selector="Border.drop-hint">
+      <Setter Property="Opacity" Value="0" />
+      <Setter Property="Transitions">
+        <Transitions><DoubleTransition Property="Opacity" Duration="0:0:0.18" Easing="CubicEaseOut" /></Transitions>
+      </Setter>
+    </Style>
+    <Style Selector="Border.drop-hint.active"><Setter Property="Opacity" Value="1" /></Style>
+  </Window.Styles>
+
+  <Window.DataTemplates>
+
+    <!-- Applications. The action bar is pinned below the scrolling list so the result of Save is always visible. -->
+    <DataTemplate DataType="vm:ApplicationsPageViewModel">
+      <Grid RowDefinitions="*,Auto" MaxWidth="920" HorizontalAlignment="Left">
+        <ScrollViewer>
+          <StackPanel Spacing="14">
+            <TextBlock Classes="title" AutomationProperties.HeadingLevel="1" Text="{Binding Title}" />
+            <TextBlock Classes="muted-text" TextWrapping="Wrap" Text="{Binding Description}" />
+
+            <!-- Drop zone: the whole window accepts drops (see AdminWindow.axaml.cs); this just shows people where to aim. -->
+            <Grid>
+              <Rectangle RadiusX="12" RadiusY="12" StrokeThickness="1.5" StrokeDashArray="5,4"
+                         Stroke="{DynamicResource Brush.border.strong}" Fill="{DynamicResource Brush.bg.surface}" />
+              <StackPanel Margin="20,18" Spacing="4" HorizontalAlignment="Center">
+                <TextBlock FontWeight="SemiBold" HorizontalAlignment="Center" Text="Drop applications here" />
+                <TextBlock Classes="muted-text" TextAlignment="Center" TextWrapping="Wrap"
+                           Text="Drag a program or a shortcut from the desktop, the Start menu or File Explorer onto this window. It is added and saved right away." />
+              </StackPanel>
+            </Grid>
+
+            <Border Classes="panel" IsVisible="{Binding IsEmpty}">
+              <TextBlock Classes="muted-text" TextWrapping="Wrap" Text="No applications are allowed yet. While Focus Mode is on, every window stays behind the overlay until you add one." />
+            </Border>
+
+            <ItemsControl ItemsSource="{Binding Rules}" AutomationProperties.Name="Allowed applications">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate DataType="vm:RuleRowViewModel">
+                  <Border Classes="rule-row">
+                    <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="16">
+                      <CheckBox Grid.Column="0" IsChecked="{Binding Enabled}" Content="Allowed" AutomationProperties.Name="{Binding AllowedLabel}" VerticalAlignment="Center" />
+                      <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
+                        <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                        <TextBlock Classes="technical caption" Text="{Binding ApplicationId}" TextTrimming="CharacterEllipsis" />
+                      </StackPanel>
+                      <CheckBox Grid.Column="2" IsChecked="{Binding FollowParent}" Content="Include dialogs" AutomationProperties.Name="{Binding DialogsLabel}" ToolTip.Tip="Dialogs, pop-ups and splash windows of this application may also appear above the overlay. Off by default." VerticalAlignment="Center" />
+                      <Button Grid.Column="3" Classes="secondary" Content="Remove" AutomationProperties.Name="{Binding RemoveLabel}" VerticalAlignment="Center"
+                              Command="{Binding DataContext.RemoveCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                              CommandParameter="{Binding}" />
+                    </Grid>
+                  </Border>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+
+            <!-- Open right now: one click, no path -->
+            <Grid ColumnDefinitions="*,Auto" Margin="0,6,0,0">
+              <TextBlock Classes="label" VerticalAlignment="Center" Text="OPEN NOW" />
+              <Button Grid.Column="1" Classes="secondary" Content="Refresh" Command="{Binding RefreshOpenAppsCommand}" AutomationProperties.Name="Refresh the list of open applications" />
+            </Grid>
+            <TextBlock Classes="muted-text" TextWrapping="Wrap" IsVisible="{Binding !HasOpenApps}"
+                       Text="Nothing to add here: every open application is already on the list." />
+            <ItemsControl ItemsSource="{Binding OpenApps}" AutomationProperties.Name="Open applications that are not allowed yet">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate DataType="vm:OpenAppItem">
+                  <Border Classes="rule-row">
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="16">
+                      <StackPanel VerticalAlignment="Center" Spacing="2">
+                        <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                        <TextBlock Classes="technical caption" Text="{Binding ApplicationId}" TextTrimming="CharacterEllipsis" />
+                      </StackPanel>
+                      <Button Grid.Column="1" Classes="secondary" Content="Allow" AutomationProperties.Name="{Binding AddLabel}" VerticalAlignment="Center"
+                              Command="{Binding DataContext.AllowOpenAppCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                              CommandParameter="{Binding}" />
+                    </Grid>
+                  </Border>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+
+            <!-- Typing a path is still possible, as a fallback -->
+            <TextBlock Classes="label" Margin="0,6,0,0" Text="OR ENTER A PATH" />
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+              <TextBox Text="{Binding NewApplicationId}" AutomationProperties.Name="Full path of the application to allow" PlaceholderText="Full path, e.g. C:\Program Files\Microsoft VS Code\Code.exe" />
+              <Button Grid.Column="1" Content="Add application" Command="{Binding AddCommand}" />
+            </Grid>
+          </StackPanel>
+        </ScrollViewer>
+        <Border Grid.Row="1" BorderBrush="{DynamicResource Brush.border.subtle}" BorderThickness="0,1,0,0" Padding="0,12,0,0" Margin="0,8,0,0">
+          <StackPanel Spacing="8">
+            <StackPanel Orientation="Horizontal" Spacing="12">
+              <Button Content="Save changes" Command="{Binding SaveCommand}" IsEnabled="{Binding IsDirty}" />
+              <Button Classes="secondary" Content="Discard" Command="{Binding RevertCommand}" IsEnabled="{Binding IsDirty}" />
+            </StackPanel>
+              <TextBlock Classes="status-success" AutomationProperties.LiveSetting="Polite" TextWrapping="Wrap" Text="{Binding StatusText}"
+                         IsVisible="{Binding StatusKind, Converter={x:Static ObjectConverters.Equal}, ConverterParameter={x:Static vm:StatusKind.Success}}" />
+              <TextBlock Classes="status-error" AutomationProperties.LiveSetting="Assertive" TextWrapping="Wrap" Text="{Binding StatusText}"
+                         IsVisible="{Binding StatusKind, Converter={x:Static ObjectConverters.Equal}, ConverterParameter={x:Static vm:StatusKind.Error}}" />
+              <TextBlock Classes="status-info" AutomationProperties.LiveSetting="Polite" TextWrapping="Wrap" Text="{Binding StatusText}"
+                         IsVisible="{Binding StatusKind, Converter={x:Static ObjectConverters.Equal}, ConverterParameter={x:Static vm:StatusKind.Info}}" />
+          </StackPanel>
+        </Border>
+      </Grid>
+    </DataTemplate>
+
+    <!-- Hotkeys (action bar pinned, see above) -->
+    <DataTemplate DataType="vm:HotkeysPageViewModel">
+      <Grid RowDefinitions="*,Auto" MaxWidth="920" HorizontalAlignment="Left">
+        <ScrollViewer>
+          <StackPanel Spacing="14">
+            <TextBlock Classes="title" AutomationProperties.HeadingLevel="1" Text="{Binding Title}" />
+            <TextBlock Classes="muted-text" TextWrapping="Wrap" Text="{Binding Description}" />
+            <ItemsControl ItemsSource="{Binding Rows}" AutomationProperties.Name="Hotkeys">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate DataType="vm:HotkeyRowViewModel">
+                  <Border Classes="rule-row">
+                    <Grid ColumnDefinitions="*,*,Auto" ColumnSpacing="16">
+                      <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                        <TextBlock Text="{Binding Label}" FontWeight="SemiBold" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                        <Border Classes="pill" IsVisible="{Binding IsLocked}"><TextBlock Text="Required" /></Border>
+                      </StackPanel>
+                      <StackPanel Grid.Column="1" Spacing="4">
+                        <TextBox Text="{Binding Chord}" AutomationProperties.Name="{Binding ChordLabel}" FontFamily="{DynamicResource Font.Mono}" />
+                        <TextBlock Classes="status-error caption" AutomationProperties.LiveSetting="Polite" TextWrapping="Wrap" Text="{Binding Problem}" IsVisible="{Binding HasProblem}" />
+                      </StackPanel>
+                      <CheckBox Grid.Column="2" Content="Enabled" AutomationProperties.Name="{Binding EnabledLabel}" IsChecked="{Binding Enabled}" IsEnabled="{Binding !IsLocked}" VerticalAlignment="Top" />
+                    </Grid>
+                  </Border>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </StackPanel>
+        </ScrollViewer>
+        <Border Grid.Row="1" BorderBrush="{DynamicResource Brush.border.subtle}" BorderThickness="0,1,0,0" Padding="0,12,0,0" Margin="0,8,0,0">
+          <StackPanel Spacing="8">
+            <StackPanel Orientation="Horizontal" Spacing="12">
+              <Button Content="Save changes" Command="{Binding SaveCommand}" IsEnabled="{Binding IsDirty}" />
+              <Button Classes="secondary" Content="Discard" Command="{Binding RevertCommand}" IsEnabled="{Binding IsDirty}" />
+              <Button Classes="secondary" Content="Restore defaults" Command="{Binding ResetToDefaultsCommand}" />
+            </StackPanel>
+              <TextBlock Classes="status-success" AutomationProperties.LiveSetting="Polite" TextWrapping="Wrap" Text="{Binding StatusText}"
+                         IsVisible="{Binding StatusKind, Converter={x:Static ObjectConverters.Equal}, ConverterParameter={x:Static vm:StatusKind.Success}}" />
+              <TextBlock Classes="status-error" AutomationProperties.LiveSetting="Assertive" TextWrapping="Wrap" Text="{Binding StatusText}"
+                         IsVisible="{Binding StatusKind, Converter={x:Static ObjectConverters.Equal}, ConverterParameter={x:Static vm:StatusKind.Error}}" />
+              <TextBlock Classes="status-info" AutomationProperties.LiveSetting="Polite" TextWrapping="Wrap" Text="{Binding StatusText}"
+                         IsVisible="{Binding StatusKind, Converter={x:Static ObjectConverters.Equal}, ConverterParameter={x:Static vm:StatusKind.Info}}" />
+          </StackPanel>
+        </Border>
+      </Grid>
+    </DataTemplate>
+
+    <!-- Workspace profiles (UI/UX 4.1) -->
+    <DataTemplate DataType="vm:ProfilesPageViewModel">
+      <Grid RowDefinitions="*,Auto" MaxWidth="920" HorizontalAlignment="Left">
+        <ScrollViewer>
+          <StackPanel Spacing="14">
+            <TextBlock Classes="title" AutomationProperties.HeadingLevel="1" Text="{Binding Title}" />
+            <TextBlock Classes="muted-text" TextWrapping="Wrap" Text="{Binding Description}" />
+
+            <Border Classes="panel" IsVisible="{Binding HasNoApplications}">
+              <TextBlock Classes="muted-text" TextWrapping="Wrap" Text="A workspace chooses from the allowed applications, and none are allowed yet. Add some on the Applications page first (you can simply drop them on the window)." />
+            </Border>
+
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <TextBlock Classes="label" VerticalAlignment="Center" Text="ADD" />
+              <ItemsControl ItemsSource="{Binding Suggestions}" AutomationProperties.Name="Workspace templates">
+                <ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation="Horizontal" Spacing="8" /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate>
+                    <Button Classes="secondary" Content="{Binding}"
+                            Command="{Binding DataContext.AddNamedCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                            CommandParameter="{Binding}" />
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+              <Button Content="New workspace" Command="{Binding AddNamedCommand}" />
+            </StackPanel>
+
+            <Border Classes="panel" IsVisible="{Binding HasNoProfiles}">
+              <TextBlock Classes="muted-text" TextWrapping="Wrap" Text="No workspaces yet. Without one, every allowed application can be shown." />
+            </Border>
+
+            <Grid ColumnDefinitions="260,*" ColumnSpacing="20" IsVisible="{Binding HasProfiles}">
+              <ListBox Classes="nav" ItemsSource="{Binding Profiles}" SelectedItem="{Binding Selected}" AutomationProperties.Name="Workspaces">
+                <ListBox.ItemTemplate>
+                  <DataTemplate DataType="vm:ProfileRowViewModel">
+                    <TextBlock Text="{Binding Summary}" TextTrimming="CharacterEllipsis" />
+                  </DataTemplate>
+                </ListBox.ItemTemplate>
+              </ListBox>
+              <Border Grid.Column="1" Classes="panel" IsVisible="{Binding HasSelection}">
+                <StackPanel Spacing="12">
+                  <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                    <TextBox Text="{Binding Selected.Name}" MaxLength="40" AutomationProperties.Name="Workspace name" />
+                    <Button Grid.Column="1" Classes="secondary" Content="Remove workspace" Command="{Binding RemoveCommand}" CommandParameter="{Binding Selected}" />
+                  </Grid>
+                  <TextBlock Classes="label" Text="APPLICATIONS IN THIS WORKSPACE" />
+                  <ItemsControl ItemsSource="{Binding Selected.Apps}" AutomationProperties.Name="Applications in this workspace">
+                    <ItemsControl.ItemTemplate>
+                      <DataTemplate DataType="vm:ProfileAppToggle">
+                        <CheckBox IsChecked="{Binding Included}" AutomationProperties.Name="{Binding AccessibleName}" Margin="0,2">
+                          <StackPanel Spacing="1">
+                            <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                            <TextBlock Classes="technical caption" Text="{Binding ApplicationId}" TextTrimming="CharacterEllipsis" />
+                          </StackPanel>
+                        </CheckBox>
+                      </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                  </ItemsControl>
+                </StackPanel>
+              </Border>
+            </Grid>
+          </StackPanel>
+        </ScrollViewer>
+        <Border Grid.Row="1" BorderBrush="{DynamicResource Brush.border.subtle}" BorderThickness="0,1,0,0" Padding="0,12,0,0" Margin="0,8,0,0">
+          <StackPanel Spacing="8">
+            <StackPanel Orientation="Horizontal" Spacing="12">
+              <Button Content="Save changes" Command="{Binding SaveCommand}" IsEnabled="{Binding IsDirty}" />
+              <Button Classes="secondary" Content="Discard" Command="{Binding RevertCommand}" IsEnabled="{Binding IsDirty}" />
+            </StackPanel>
+            <TextBlock Classes="status-success" AutomationProperties.LiveSetting="Polite" TextWrapping="Wrap" Text="{Binding StatusText}"
+                       IsVisible="{Binding StatusKind, Converter={x:Static ObjectConverters.Equal}, ConverterParameter={x:Static vm:StatusKind.Success}}" />
+            <TextBlock Classes="status-error" AutomationProperties.LiveSetting="Assertive" TextWrapping="Wrap" Text="{Binding StatusText}"
+                       IsVisible="{Binding StatusKind, Converter={x:Static ObjectConverters.Equal}, ConverterParameter={x:Static vm:StatusKind.Error}}" />
+            <TextBlock Classes="status-info" AutomationProperties.LiveSetting="Polite" TextWrapping="Wrap" Text="{Binding StatusText}"
+                       IsVisible="{Binding StatusKind, Converter={x:Static ObjectConverters.Equal}, ConverterParameter={x:Static vm:StatusKind.Info}}" />
+          </StackPanel>
+        </Border>
+      </Grid>
+    </DataTemplate>
+
+    <!-- Appearance -->
+    <DataTemplate DataType="vm:AppearancePageViewModel">
+      <Grid RowDefinitions="*,Auto" MaxWidth="920" HorizontalAlignment="Left">
+        <ScrollViewer>
+          <StackPanel Spacing="14">
+            <TextBlock Classes="title" AutomationProperties.HeadingLevel="1" Text="{Binding Title}" />
+            <TextBlock Classes="muted-text" TextWrapping="Wrap" Text="{Binding Description}" />
+            <Border Classes="panel">
+              <StackPanel Spacing="14">
+                <CheckBox IsChecked="{Binding ShowClock}" Content="Show the clock and date on the Focus screen" />
+                <CheckBox IsChecked="{Binding ShowSystemStatus}" Content="Show CPU and memory in a quiet line at the bottom" />
+                <CheckBox IsChecked="{Binding ReducedMotion}" Content="Reduce motion: no breathing glow, no drifting dot, no fade-in" />
+              </StackPanel>
+            </Border>
+          </StackPanel>
+        </ScrollViewer>
+        <Border Grid.Row="1" BorderBrush="{DynamicResource Brush.border.subtle}" BorderThickness="0,1,0,0" Padding="0,12,0,0" Margin="0,8,0,0">
+          <StackPanel Spacing="8">
+            <StackPanel Orientation="Horizontal" Spacing="12">
+              <Button Content="Save changes" Command="{Binding SaveCommand}" IsEnabled="{Binding IsDirty}" />
+              <Button Classes="secondary" Content="Discard" Command="{Binding RevertCommand}" IsEnabled="{Binding IsDirty}" />
+            </StackPanel>
+            <TextBlock Classes="status-success" AutomationProperties.LiveSetting="Polite" TextWrapping="Wrap" Text="{Binding StatusText}"
+                       IsVisible="{Binding StatusKind, Converter={x:Static ObjectConverters.Equal}, ConverterParameter={x:Static vm:StatusKind.Success}}" />
+            <TextBlock Classes="status-error" AutomationProperties.LiveSetting="Assertive" TextWrapping="Wrap" Text="{Binding StatusText}"
+                       IsVisible="{Binding StatusKind, Converter={x:Static ObjectConverters.Equal}, ConverterParameter={x:Static vm:StatusKind.Error}}" />
+            <TextBlock Classes="status-info" AutomationProperties.LiveSetting="Polite" TextWrapping="Wrap" Text="{Binding StatusText}"
+                       IsVisible="{Binding StatusKind, Converter={x:Static ObjectConverters.Equal}, ConverterParameter={x:Static vm:StatusKind.Info}}" />
+          </StackPanel>
+        </Border>
+      </Grid>
+    </DataTemplate>
+
+    <!-- Focus timer (UI/UX 4.2) -->
+    <DataTemplate DataType="vm:FocusTimerPageViewModel">
+      <Grid RowDefinitions="*,Auto" MaxWidth="920" HorizontalAlignment="Left">
+        <ScrollViewer>
+          <StackPanel Spacing="14">
+            <TextBlock Classes="title" AutomationProperties.HeadingLevel="1" Text="{Binding Title}" />
+            <TextBlock Classes="muted-text" TextWrapping="Wrap" Text="{Binding Description}" />
+            <Border Classes="panel">
+              <StackPanel Spacing="12">
+                <TextBlock TextWrapping="Wrap" Text="{Binding HowToStart}" />
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                  <TextBlock Classes="label" VerticalAlignment="Center" Text="PRESETS" />
+                  <ItemsControl ItemsSource="{Binding Presets}">
+                    <ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation="Horizontal" Spacing="8" /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                      <DataTemplate><Border Classes="pill"><TextBlock Text="{Binding StringFormat={}{0} min}" /></Border></DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                  </ItemsControl>
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Spacing="12">
+                  <TextBlock Classes="label" VerticalAlignment="Center" Text="DEFAULT LENGTH (MINUTES)" />
+                  <TextBox Width="96" Text="{Binding DefaultMinutesText}" AutomationProperties.Name="Default focus session length in minutes" />
+                </StackPanel>
+              </StackPanel>
+            </Border>
+
+            <TextBlock Classes="label" Text="FOCUS TIME ACTUALLY SPENT" />
+            <Border Classes="panel">
+              <StackPanel Spacing="8">
+                <Grid ColumnDefinitions="160,*"><TextBlock Classes="label" Text="Today" /><TextBlock Grid.Column="1" Text="{Binding Today}" FontWeight="SemiBold" /></Grid>
+                <Grid ColumnDefinitions="160,*"><TextBlock Classes="label" Text="Last 7 days" /><TextBlock Grid.Column="1" Text="{Binding ThisWeek}" FontWeight="SemiBold" /></Grid>
+              </StackPanel>
+            </Border>
+            <TextBlock Classes="muted-text" IsVisible="{Binding !HasRecent}" Text="No sessions recorded yet." />
+            <ItemsControl ItemsSource="{Binding Recent}" AutomationProperties.Name="Recent focus sessions">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate DataType="vm:SessionRow">
+                  <Border Classes="rule-row">
+                    <Grid ColumnDefinitions="190,130,110,130,*" ColumnSpacing="12">
+                      <TextBlock Text="{Binding Started}" />
+                      <TextBlock Grid.Column="1" Classes="muted-text" Text="{Binding Planned}" />
+                      <TextBlock Grid.Column="2" FontWeight="SemiBold" Text="{Binding Actual}" />
+                      <TextBlock Grid.Column="3" Text="{Binding Outcome}" />
+                      <TextBlock Grid.Column="4" Classes="muted-text" Text="{Binding Workspace}" TextTrimming="CharacterEllipsis" />
+                    </Grid>
+                  </Border>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </StackPanel>
+        </ScrollViewer>
+        <Border Grid.Row="1" BorderBrush="{DynamicResource Brush.border.subtle}" BorderThickness="0,1,0,0" Padding="0,12,0,0" Margin="0,8,0,0">
+          <StackPanel Spacing="8">
+            <Button Content="Save default length" Command="{Binding SaveCommand}" IsEnabled="{Binding IsDirty}" HorizontalAlignment="Left" />
+            <TextBlock Classes="status-success" AutomationProperties.LiveSetting="Polite" TextWrapping="Wrap" Text="{Binding StatusText}"
+                       IsVisible="{Binding StatusKind, Converter={x:Static ObjectConverters.Equal}, ConverterParameter={x:Static vm:StatusKind.Success}}" />
+            <TextBlock Classes="status-error" AutomationProperties.LiveSetting="Assertive" TextWrapping="Wrap" Text="{Binding StatusText}"
+                       IsVisible="{Binding StatusKind, Converter={x:Static ObjectConverters.Equal}, ConverterParameter={x:Static vm:StatusKind.Error}}" />
+          </StackPanel>
+        </Border>
+      </Grid>
+    </DataTemplate>
+
+    <!-- Security -->
+    <DataTemplate DataType="vm:SecurityPageViewModel">
+      <ScrollViewer>
+        <StackPanel Spacing="14" MaxWidth="920" HorizontalAlignment="Left">
+          <TextBlock Classes="title" AutomationProperties.HeadingLevel="1" Text="{Binding Title}" />
+          <TextBlock Classes="muted-text" TextWrapping="Wrap" Text="{Binding Description}" />
+          <Border Classes="panel">
+            <ItemsControl ItemsSource="{Binding Facts}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate DataType="vm:FactRow">
+                  <Grid ColumnDefinitions="280,*" Margin="0,5">
+                    <TextBlock Classes="label" Text="{Binding Label}" VerticalAlignment="Top" />
+                    <TextBlock Grid.Column="1" Classes.technical="{Binding IsTechnical}" Text="{Binding Value}" TextWrapping="Wrap" />
+                  </Grid>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </Border>
+          <Border Classes="warning-card">
+            <StackPanel Spacing="6">
+              <TextBlock FontWeight="SemiBold" Foreground="{DynamicResource Brush.status.warning}" Text="Not a security boundary" />
+              <TextBlock Classes="muted-text" TextWrapping="Wrap" Text="{Binding Limitation}" />
+            </StackPanel>
+          </Border>
+          <TextBlock Classes="caption" TextWrapping="Wrap" Text="{Binding Recovery}" />
+        </StackPanel>
+      </ScrollViewer>
+    </DataTemplate>
+
+    <!-- Diagnostics -->
+    <DataTemplate DataType="vm:DiagnosticsPageViewModel">
+      <ScrollViewer>
+        <StackPanel Spacing="14" MaxWidth="920" HorizontalAlignment="Left">
+          <TextBlock Classes="title" AutomationProperties.HeadingLevel="1" Text="{Binding Title}" />
+          <TextBlock Classes="muted-text" TextWrapping="Wrap" Text="{Binding Description}" />
+          <Border Classes="panel">
+            <ItemsControl ItemsSource="{Binding Session}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate DataType="vm:FactRow">
+                  <Grid ColumnDefinitions="220,*" Margin="0,5">
+                    <TextBlock Classes="label" Text="{Binding Label}" VerticalAlignment="Top" />
+                    <TextBlock Grid.Column="1" Classes.technical="{Binding IsTechnical}" Text="{Binding Value}" TextWrapping="Wrap" />
+                  </Grid>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </Border>
+          <TextBlock Classes="label" Text="DISPLAYS" />
+          <Border Classes="panel">
+            <ItemsControl ItemsSource="{Binding Displays}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate DataType="vm:FactRow">
+                  <Grid ColumnDefinitions="220,*" Margin="0,5">
+                    <TextBlock Text="{Binding Label}" FontWeight="SemiBold" />
+                    <TextBlock Grid.Column="1" Classes="technical" Text="{Binding Value}" />
+                  </Grid>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </Border>
+        </StackPanel>
+      </ScrollViewer>
+    </DataTemplate>
+
+    <!-- Groups that exist in the specification but are not built yet -->
+    <DataTemplate DataType="vm:PlaceholderPageViewModel">
+      <StackPanel Spacing="14" MaxWidth="920" HorizontalAlignment="Left">
+        <TextBlock Classes="title" AutomationProperties.HeadingLevel="1" Text="{Binding Title}" />
+        <TextBlock Classes="muted-text" TextWrapping="Wrap" Text="{Binding Description}" />
+        <Border Classes="panel"><StackPanel Orientation="Horizontal" Spacing="10">
+          <Border Classes="pill"><TextBlock Text="Planned" /></Border>
+          <TextBlock Classes="muted-text" VerticalAlignment="Center" Text="{Binding Note}" />
+        </StackPanel></Border>
+      </StackPanel>
+    </DataTemplate>
+
+  </Window.DataTemplates>
+
+  <Grid>
+    <!-- Signed in as the Super Admin -->
+    <Grid ColumnDefinitions="272,*" IsVisible="{Binding IsGranted}">
+      <Border Background="{DynamicResource Brush.bg.surface}" BorderBrush="{DynamicResource Brush.border.subtle}" BorderThickness="0,0,1,0">
+        <!-- One scrolling column: on a small or high-scale display nothing overlaps, the user scrolls instead. -->
+        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+          <StackPanel>
+            <StackPanel Margin="24,24,24,12" Spacing="2">
+              <TextBlock Classes="display" Text="VEIL" />
+              <TextBlock Classes="technical caption" Text="SETTINGS" />
+            </StackPanel>
+            <ListBox Classes="nav" ItemsSource="{Binding Sections}" SelectedItem="{Binding SelectedSection}"
+                     ScrollViewer.VerticalScrollBarVisibility="Disabled" AutomationProperties.Name="Settings sections">
+              <ListBox.ItemTemplate>
+                <DataTemplate DataType="vm:SectionItem">
+                  <Grid ColumnDefinitions="*,Auto" AutomationProperties.Name="{Binding AccessibleName}">
+                    <TextBlock Text="{Binding Name}" VerticalAlignment="Center" />
+                    <Border Grid.Column="1" Classes="pill" IsVisible="{Binding IsPlanned}"><TextBlock Text="Planned" /></Border>
+                  </Grid>
+                </DataTemplate>
+              </ListBox.ItemTemplate>
+            </ListBox>
+            <StackPanel Margin="24,18,24,24" Spacing="6">
+              <TextBlock Classes="label" Text="Signed in" />
+              <TextBlock Text="{Binding IdentityText}" TextWrapping="Wrap" Classes="technical caption" />
+              <Border Classes="pill allowed" HorizontalAlignment="Left"><TextBlock Text="Super Admin" /></Border>
+            </StackPanel>
+          </StackPanel>
+        </ScrollViewer>
+      </Border>
+
+      <DockPanel Grid.Column="1" Margin="32,24,32,24">
+        <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Spacing="8" Margin="0,0,0,18">
+          <TextBlock Classes="label" VerticalAlignment="Center" Text="Applies to" />
+          <Border Classes="pill"><TextBlock Text="{Binding SelectedSection.Scope}" /></Border>
+        </StackPanel>
+        <ContentControl Content="{Binding CurrentPage}" />
+      </DockPanel>
+    </Grid>
+
+    <!-- Shown while files are dragged over the window -->
+    <Border Classes="drop-hint" Classes.active="{Binding IsDragActive}" IsHitTestVisible="False" Margin="10" CornerRadius="14"
+            Background="#D007060D" BorderBrush="{DynamicResource Brush.border.focus}" BorderThickness="2">
+      <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="6">
+        <TextBlock Classes="title" HorizontalAlignment="Center" Text="Drop to allow these applications" />
+        <TextBlock Classes="muted-text" HorizontalAlignment="Center" Text="Programs and shortcuts are added to the allow-list and saved." />
+      </StackPanel>
+    </Border>
+
+    <!-- Not the Super Admin, not provisioned, or identity unavailable -->
+    <Border Classes="hud" IsVisible="{Binding IsDenied}" Width="560" Padding="36"
+            HorizontalAlignment="Center" VerticalAlignment="Center">
+      <StackPanel Spacing="14">
+        <TextBlock Classes="display" Text="VEIL" />
+        <TextBlock Classes="title" Foreground="{DynamicResource Brush.status.error}" Text="{Binding AccessTitle}" />
+        <TextBlock Classes="muted-text" TextWrapping="Wrap" Text="{Binding AccessMessage}" />
+        <Border Classes="panel" Padding="14,10">
+          <StackPanel Spacing="4">
+            <TextBlock Classes="label" Text="You are signed in to this computer as" />
+            <TextBlock Classes="technical" TextWrapping="Wrap" Text="{Binding IdentityText}" />
+          </StackPanel>
+        </Border>
+        <TextBlock Classes="caption" TextWrapping="Wrap" Text="VEIL uses your operating-system account. It never asks for or stores a password." />
+        <Button Content="Check again" Command="{Binding SignInCommand}" HorizontalAlignment="Left" />
+      </StackPanel>
+    </Border>
+  </Grid>
+</Window>

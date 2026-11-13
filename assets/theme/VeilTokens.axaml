@@ -1,0 +1,115 @@
+<!-- GENERATED from veil-tokens.json by the VEIL theme tooling; edit the JSON, not this file. A unit test checks they agree. -->
+<ResourceDictionary xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <ResourceDictionary.MergedDictionaries />
+
+  <!-- Colours -->
+  <Color x:Key="Color.bg.canvas">#080817</Color>
+  <Color x:Key="Color.bg.base">#07060D</Color>
+  <Color x:Key="Color.bg.surface">#100B1A</Color>
+  <Color x:Key="Color.bg.raised">#1B1030</Color>
+  <Color x:Key="Color.bg.panel">#1D232F</Color>
+  <Color x:Key="Color.border.subtle">#2E2D46</Color>
+  <Color x:Key="Color.border.strong">#4A3A7A</Color>
+  <Color x:Key="Color.border.focus">#31F1F4</Color>
+  <Color x:Key="Color.text.primary">#E6E1F5</Color>
+  <Color x:Key="Color.text.secondary">#B3ADCC</Color>
+  <Color x:Key="Color.text.muted">#918AAE</Color>
+  <Color x:Key="Color.text.link">#B58CF5</Color>
+  <Color x:Key="Color.text.onAccent">#FFFFFF</Color>
+  <Color x:Key="Color.accent.primary">#7A31D6</Color>
+  <Color x:Key="Color.accent.primaryHover">#9235EC</Color>
+  <Color x:Key="Color.accent.primaryActive">#6132A6</Color>
+  <Color x:Key="Color.accent.glow">#AB46EE</Color>
+  <Color x:Key="Color.accent.lilac">#BBA8F4</Color>
+  <Color x:Key="Color.accent.cyan">#31F1F4</Color>
+  <Color x:Key="Color.accent.cyanDim">#48D6E8</Color>
+  <Color x:Key="Color.accent.magenta">#ED75F2</Color>
+  <Color x:Key="Color.accent.blue">#4A8DBF</Color>
+  <Color x:Key="Color.status.success">#35D07F</Color>
+  <Color x:Key="Color.status.successBg">#0E2A1D</Color>
+  <Color x:Key="Color.status.warning">#F2B84B</Color>
+  <Color x:Key="Color.status.warningBg">#2E2210</Color>
+  <Color x:Key="Color.status.error">#FF6B86</Color>
+  <Color x:Key="Color.status.errorBg">#34121C</Color>
+  <Color x:Key="Color.status.info">#31F1F4</Color>
+  <Color x:Key="Color.status.infoBg">#0B2A33</Color>
+  <Color x:Key="Color.status.neutralBg">#221E30</Color>
+
+  <!-- Brushes (one per colour token) -->
+  <SolidColorBrush x:Key="Brush.bg.canvas" Color="{StaticResource Color.bg.canvas}" />
+  <SolidColorBrush x:Key="Brush.bg.base" Color="{StaticResource Color.bg.base}" />
+  <SolidColorBrush x:Key="Brush.bg.surface" Color="{StaticResource Color.bg.surface}" />
+  <SolidColorBrush x:Key="Brush.bg.raised" Color="{StaticResource Color.bg.raised}" />
+  <SolidColorBrush x:Key="Brush.bg.panel" Color="{StaticResource Color.bg.panel}" />
+  <SolidColorBrush x:Key="Brush.border.subtle" Color="{StaticResource Color.border.subtle}" />
+  <SolidColorBrush x:Key="Brush.border.strong" Color="{StaticResource Color.border.strong}" />
+  <SolidColorBrush x:Key="Brush.border.focus" Color="{StaticResource Color.border.focus}" />
+  <SolidColorBrush x:Key="Brush.text.primary" Color="{StaticResource Color.text.primary}" />
+  <SolidColorBrush x:Key="Brush.text.secondary" Color="{StaticResource Color.text.secondary}" />
+  <SolidColorBrush x:Key="Brush.text.muted" Color="{StaticResource Color.text.muted}" />
+  <SolidColorBrush x:Key="Brush.text.link" Color="{StaticResource Color.text.link}" />
+  <SolidColorBrush x:Key="Brush.text.onAccent" Color="{StaticResource Color.text.onAccent}" />
+  <SolidColorBrush x:Key="Brush.accent.primary" Color="{StaticResource Color.accent.primary}" />
+  <SolidColorBrush x:Key="Brush.accent.primaryHover" Color="{StaticResource Color.accent.primaryHover}" />
+  <SolidColorBrush x:Key="Brush.accent.primaryActive" Color="{StaticResource Color.accent.primaryActive}" />
+  <SolidColorBrush x:Key="Brush.accent.glow" Color="{StaticResource Color.accent.glow}" />
+  <SolidColorBrush x:Key="Brush.accent.lilac" Color="{StaticResource Color.accent.lilac}" />
+  <SolidColorBrush x:Key="Brush.accent.cyan" Color="{StaticResource Color.accent.cyan}" />
+  <SolidColorBrush x:Key="Brush.accent.cyanDim" Color="{StaticResource Color.accent.cyanDim}" />
+  <SolidColorBrush x:Key="Brush.accent.magenta" Color="{StaticResource Color.accent.magenta}" />
+  <SolidColorBrush x:Key="Brush.accent.blue" Color="{StaticResource Color.accent.blue}" />
+  <SolidColorBrush x:Key="Brush.status.success" Color="{StaticResource Color.status.success}" />
+  <SolidColorBrush x:Key="Brush.status.successBg" Color="{StaticResource Color.status.successBg}" />
+  <SolidColorBrush x:Key="Brush.status.warning" Color="{StaticResource Color.status.warning}" />
+  <SolidColorBrush x:Key="Brush.status.warningBg" Color="{StaticResource Color.status.warningBg}" />
+  <SolidColorBrush x:Key="Brush.status.error" Color="{StaticResource Color.status.error}" />
+  <SolidColorBrush x:Key="Brush.status.errorBg" Color="{StaticResource Color.status.errorBg}" />
+  <SolidColorBrush x:Key="Brush.status.info" Color="{StaticResource Color.status.info}" />
+  <SolidColorBrush x:Key="Brush.status.infoBg" Color="{StaticResource Color.status.infoBg}" />
+  <SolidColorBrush x:Key="Brush.status.neutralBg" Color="{StaticResource Color.status.neutralBg}" />
+
+  <!-- Spacing (device-independent pixels) -->
+  <x:Double x:Key="Space.xs">4</x:Double>
+  <x:Double x:Key="Space.sm">8</x:Double>
+  <x:Double x:Key="Space.md">12</x:Double>
+  <x:Double x:Key="Space.lg">16</x:Double>
+  <x:Double x:Key="Space.xl">24</x:Double>
+  <x:Double x:Key="Space.xxl">32</x:Double>
+
+  <!-- Uniform padding / margins for properties that need a Thickness -->
+  <Thickness x:Key="Pad.xs">4</Thickness>
+  <Thickness x:Key="Pad.sm">8</Thickness>
+  <Thickness x:Key="Pad.md">12</Thickness>
+  <Thickness x:Key="Pad.lg">16</Thickness>
+  <Thickness x:Key="Pad.xl">24</Thickness>
+  <Thickness x:Key="Pad.xxl">32</Thickness>
+
+  <!-- Corner radii -->
+  <CornerRadius x:Key="Radius.sm">4</CornerRadius>
+  <CornerRadius x:Key="Radius.md">8</CornerRadius>
+  <CornerRadius x:Key="Radius.lg">12</CornerRadius>
+  <CornerRadius x:Key="Radius.pill">999</CornerRadius>
+
+  <!-- Typography. Sizes are points in the tokens; Avalonia uses device-independent pixels (pt x 96/72). -->
+  <FontFamily x:Key="Font.Family">Segoe UI, Inter, Roboto, sans-serif</FontFamily>
+  <FontFamily x:Key="Font.Mono">Cascadia Mono, Consolas, monospace</FontFamily>
+  <x:Double x:Key="Font.Size.caption">12.0</x:Double>
+  <x:Double x:Key="Font.Size.body">14.0</x:Double>
+  <x:Double x:Key="Font.Size.bodyLarge">16.0</x:Double>
+  <x:Double x:Key="Font.Size.title">21.33</x:Double>
+  <x:Double x:Key="Font.Size.display">37.33</x:Double>
+  <x:Double x:Key="Font.Size.timer">74.67</x:Double>
+
+  <!-- Motion (milliseconds). Consumers must skip all of it when the reduced-motion preference is on. -->
+  <x:Double x:Key="Motion.fastMs">120</x:Double>
+  <x:Double x:Key="Motion.baseMs">200</x:Double>
+  <x:Double x:Key="Motion.slowMs">400</x:Double>
+  <x:Double x:Key="Motion.pulseMs">4000</x:Double>
+
+  <!-- Component metrics -->
+  <x:Double x:Key="Component.selectorRowHeight">52</x:Double>
+  <x:Double x:Key="Component.selectorWidth">760</x:Double>
+  <x:Double x:Key="Component.selectorHeight">480</x:Double>
+  <x:Double x:Key="Component.pillHeight">20</x:Double>
+  <x:Double x:Key="Component.focusRingWidth">2</x:Double>
+</ResourceDictionary>

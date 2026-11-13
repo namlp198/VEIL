@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <!-- CommunityToolkit field-based [ObservableProperty] is fine here; the AOT-oriented partial-property advice is not needed. -->
+    <NoWarn>$(NoWarn);MVVMTK0045</NoWarn>
+    <AvaloniaUseCompiledBindingsByDefault>false</AvaloniaUseCompiledBindingsByDefault>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Avalonia" Version="12.1.5" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="12.1.5" />
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
+    <!-- The generated theme resources are served to the views as avares://VEIL.Presentation/theme/... -->
+    <AvaloniaResource Include="..\..\assets\theme\*.axaml" Link="theme\%(Filename)%(Extension)" />
+    <AvaloniaResource Include="..\..\assets\icons\veil-tray.png" Link="icons\veil-tray.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\VEIL.Domain\VEIL.Domain.csproj" />
+    <ProjectReference Include="..\VEIL.Application\VEIL.Application.csproj" />
+    <ProjectReference Include="..\VEIL.Platform.Abstractions\VEIL.Platform.Abstractions.csproj" />
+  </ItemGroup>
+</Project>
