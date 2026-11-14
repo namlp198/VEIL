@@ -240,7 +240,7 @@ public class ConfigurationUpgradeTests
         var upgraded = DefaultHotkeys.WithMissingDefaults(
         [
             new(HotkeyCommand.EmergencyRecovery, "Ctrl+Alt+Esc"),
-            new(HotkeyCommand.Selector, "Ctrl+Alt+T"),       // the user's own choice
+            new(HotkeyCommand.HideAll, "Ctrl+Alt+T"),          // the user's own choice
         ]);
         Assert.DoesNotContain(upgraded, h => h.Command == HotkeyCommand.FocusTimer);
         Assert.Contains(upgraded, h => h.Command == HotkeyCommand.NextProfile);

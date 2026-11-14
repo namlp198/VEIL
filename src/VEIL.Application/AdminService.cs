@@ -102,6 +102,17 @@ public sealed class AdminService(IAuthenticationProvider auth, IConfigurationSto
         return Ok(current, "profiles.update", $"Workspaces updated ({profiles.Count}).");
     }
 
+    /// <summary>Protected change of the password that ends the full lock. Only a salted hash is stored.</summary>
+    public ActionResult UpdateLockPassword(string newPassword)
+    {
+        var authz = Authorize();
+        var current = auth.GetCurrentIdentity();
+        if (!authz.IsGranted) return Fail(current, "lockpassword.update", authz.Message);
+        if (LockPassword.Validate(newPassword) is { } problem) return Fail(current, "lockpassword.update", problem);
+        if (!TrySave(store.Load() with { LockPasswordHash = LockPassword.Hash(newPassword) }, out var saveError)) return Fail(current, "lockpassword.update", saveError!);
+        return Ok(current, "lockpassword.update", "Lock password changed.");
+    }
+
     /// <summary>Protected hotkey change. Rejects invalid or conflicting sets and keeps the existing bindings (AT-011).</summary>
     public ActionResult UpdateHotkeys(IReadOnlyList<HotkeyBinding> bindings)
     {

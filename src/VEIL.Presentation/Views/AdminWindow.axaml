@@ -353,6 +353,20 @@
               </ItemsControl.ItemTemplate>
             </ItemsControl>
           </Border>
+          <Border Classes="panel">
+            <StackPanel Spacing="10">
+              <TextBlock FontWeight="SemiBold" Text="Lock password (ends the full lock)" />
+              <TextBlock Classes="muted-text" TextWrapping="Wrap" Text="{Binding PasswordNote}" />
+              <TextBlock Classes="status-error" TextWrapping="Wrap" IsVisible="{Binding UsesDefaultPassword}" Text="The default password is still in use." />
+              <TextBox PasswordChar="●" Watermark="New password" Text="{Binding NewPassword}" MaxWidth="360" HorizontalAlignment="Left" />
+              <TextBox PasswordChar="●" Watermark="Repeat the new password" Text="{Binding ConfirmPassword}" MaxWidth="360" HorizontalAlignment="Left" />
+              <Button Content="Change password" Command="{Binding SavePasswordCommand}" HorizontalAlignment="Left" />
+              <TextBlock Classes="status-success" TextWrapping="Wrap" Text="{Binding PasswordStatus}"
+                         IsVisible="{Binding PasswordStatusKind, Converter={x:Static ObjectConverters.Equal}, ConverterParameter={x:Static vm:StatusKind.Success}}" />
+              <TextBlock Classes="status-error" TextWrapping="Wrap" Text="{Binding PasswordStatus}"
+                         IsVisible="{Binding PasswordStatusKind, Converter={x:Static ObjectConverters.Equal}, ConverterParameter={x:Static vm:StatusKind.Error}}" />
+            </StackPanel>
+          </Border>
           <Border Classes="warning-card">
             <StackPanel Spacing="6">
               <TextBlock FontWeight="SemiBold" Foreground="{DynamicResource Brush.status.warning}" Text="Not a security boundary" />

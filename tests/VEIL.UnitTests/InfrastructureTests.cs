@@ -47,13 +47,26 @@ public class JsonConfigurationStoreTests
     }
 
     [Fact]
+    public void An_old_config_that_still_binds_the_removed_Selector_loads_and_drops_it()
+    {
+        using var d = new TempDir();
+        var store = new JsonConfigurationStore(d.Path);
+        File.WriteAllText(store.FilePath, "{\"SchemaVersion\":1,\"Hotkeys\":[{\"Command\":\"Selector\",\"Chord\":\"Ctrl+Alt+L\",\"Enabled\":true},{\"Command\":\"EmergencyRecovery\",\"Chord\":\"Ctrl+Alt+Esc\",\"Enabled\":true}]}");
+        var cfg = store.Load();
+        Assert.DoesNotContain(cfg.Hotkeys, h => h.Command == HotkeyCommand.Selector);
+        Assert.Contains(cfg.Hotkeys, h => h.Command == HotkeyCommand.EmergencyRecovery);
+    }
+
+    [Fact]
     public void Config_never_contains_credential_fields()
     {
         using var d = new TempDir();
         var store = new JsonConfigurationStore(d.Path);
-        store.Save(new VeilConfiguration { SuperAdmin = new SuperAdminIdentity("Windows", "S-1", "a") });
+        store.Save(new VeilConfiguration { SuperAdmin = new SuperAdminIdentity("Windows", "S-1", "a"), LockPasswordHash = LockPassword.Hash("hunter2-clear") });
         var text = File.ReadAllText(store.FilePath);
-        Assert.DoesNotContain("password", text, StringComparison.OrdinalIgnoreCase);
+        // The only credential-like field is the salted lock-password hash; the clear password is never written.
+        Assert.DoesNotContain("hunter2-clear", text, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("password", text.Replace("lockPasswordHash", "", StringComparison.OrdinalIgnoreCase), StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("token", text, StringComparison.OrdinalIgnoreCase);
     }
 

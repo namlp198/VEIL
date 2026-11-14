@@ -17,7 +17,7 @@ public sealed record AuditEvent(DateTimeOffset Timestamp, string Identity, strin
 public sealed record FocusPreferences(bool ReducedMotion = false, bool AutoEnterFocusOnStart = false, bool ShowClock = true,
     bool SelectorOnPointerDisplay = false, bool ShowSystemStatus = true, int DefaultTimerMinutes = 25);
 
-/// <summary>Persisted machine configuration. Never contains passwords or tokens.</summary>
+/// <summary>Persisted machine configuration. Contains no clear-text passwords or tokens (only a salted hash of the lock password).</summary>
 public sealed record VeilConfiguration
 {
     public const int CurrentSchemaVersion = 1;
@@ -29,4 +29,6 @@ public sealed record VeilConfiguration
     public FocusPreferences Preferences { get; init; } = new();
     /// <summary>Added after schema 1 shipped: older files simply have none, which is valid.</summary>
     public IReadOnlyList<WorkspaceProfile> Profiles { get; init; } = [];
+    /// <summary>Salted hash of the password that ends the full lock (see <see cref="LockPassword"/>); null means the default.</summary>
+    public string? LockPasswordHash { get; init; }
 }

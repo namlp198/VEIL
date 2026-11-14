@@ -1,3 +1,5 @@
+using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
 using VEIL.Application;
 using VEIL.Domain;
 using VEIL.Platform.Abstractions;
@@ -15,10 +17,19 @@ public sealed class PlaceholderPageViewModel(string title, string description)
 }
 
 /// <summary>Read-only security facts (UI/UX 3.4, security design 2 and 3). Shows references, never secrets.</summary>
-public sealed class SecurityPageViewModel
+public sealed partial class SecurityPageViewModel : ObservableObject
 {
-    public SecurityPageViewModel(IAuthenticationProvider auth, IConfigurationStore store)
+    private readonly AdminService _admin;
+
+    [ObservableProperty] private string _newPassword = string.Empty;
+    [ObservableProperty] private string _confirmPassword = string.Empty;
+    [ObservableProperty] private string _passwordStatus = string.Empty;
+    [ObservableProperty] private StatusKind _passwordStatusKind;
+
+    public SecurityPageViewModel(IAuthenticationProvider auth, IConfigurationStore store, AdminService service)
     {
+        _admin = service;
+        UsesDefaultPassword = string.IsNullOrEmpty(store.Load().LockPasswordHash);
         var me = auth.GetCurrentIdentity();
         var admin = store.Load().SuperAdmin;
         Facts =
@@ -29,8 +40,25 @@ public sealed class SecurityPageViewModel
             new("Super Admin identifier", admin is null ? "-" : $"{admin.Platform}  {admin.Principal}", true),
             new("This account is the Super Admin", admin is not null && admin.IsSamePrincipal(me) ? "Yes" : "No"),
             new("OS administrator rights in this session", auth.IsOsAdministrator() ? "Yes" : "No"),
-            new("How identity is checked", "The operating system's authenticated session identity. VEIL never asks for or stores a password. An extra OS re-authentication prompt is not available yet."),
+            new("How identity is checked", "Changing settings is decided by the operating system's authenticated session identity. The lock password below is separate: it only ends the full lock."),
         ];
+    }
+
+    public bool UsesDefaultPassword { get; private set; }
+    public string PasswordNote => "The lock icon at the top right of the Focus screen opens a password box; the right password ends the full lock. "
+        + "Only a salted hash is stored. Until you set one here the password is \"" + LockPassword.Default + "\", so change it.";
+
+    [RelayCommand]
+    private void SavePassword()
+    {
+        if (NewPassword != ConfirmPassword) { PasswordStatus = "The two passwords are not the same."; PasswordStatusKind = StatusKind.Error; return; }
+        var result = _admin.UpdateLockPassword(NewPassword);
+        PasswordStatus = result.Message;
+        PasswordStatusKind = result.Success ? StatusKind.Success : StatusKind.Error;
+        if (!result.Success) return;
+        UsesDefaultPassword = false;
+        OnPropertyChanged(nameof(UsesDefaultPassword));
+        NewPassword = ConfirmPassword = string.Empty;
     }
 
     public string Title => "Security";

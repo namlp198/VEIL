@@ -24,13 +24,14 @@ public sealed partial class HotkeyRowViewModel : ObservableObject
         HotkeyCommand.FocusOn => "Focus On",
         HotkeyCommand.FocusOff => "Focus Off",
         HotkeyCommand.HideAll => "Hide All",
-        HotkeyCommand.Selector => "Window Selector",
         HotkeyCommand.EmergencyRecovery => "Emergency Recovery",
         HotkeyCommand.NextWindow => "Next allowed window",
         HotkeyCommand.PreviousWindow => "Previous allowed window",
         HotkeyCommand.HideCurrent => "Hide current window",
         HotkeyCommand.FocusTimer => "Start / stop focus timer",
         HotkeyCommand.NextProfile => "Next workspace",
+        HotkeyCommand.Dock => "Allowed apps panel (also Tab)",
+        HotkeyCommand.TrayMode => "Switch full lock / tray mode",
         _ => Command.ToString(),
     };
     public bool IsLocked => Command == HotkeyCommand.EmergencyRecovery;

@@ -1,6 +1,7 @@
 namespace VEIL.Domain;
 
-public enum HotkeyCommand { FocusOn, FocusOff, HideAll, Selector, EmergencyRecovery, NextWindow, PreviousWindow, HideCurrent, FocusTimer, NextProfile }
+/// <summary><c>Selector</c> is retired (the Window Selector was removed). It stays only so older configuration files still parse; it is dropped on load and never registered.</summary>
+public enum HotkeyCommand { FocusOn, FocusOff, HideAll, Selector, EmergencyRecovery, NextWindow, PreviousWindow, HideCurrent, FocusTimer, NextProfile, Dock, TrayMode }
 
 [Flags]
 public enum KeyModifiers { None = 0, Ctrl = 1, Alt = 2, Shift = 4, Win = 8 }
@@ -72,13 +73,14 @@ public static class DefaultHotkeys
         new(HotkeyCommand.FocusOn, "Ctrl+Alt+V"),
         new(HotkeyCommand.FocusOff, "Ctrl+Alt+U"),
         new(HotkeyCommand.HideAll, "Ctrl+Alt+H"),
-        new(HotkeyCommand.Selector, "Ctrl+Alt+L"),
         new(HotkeyCommand.EmergencyRecovery, "Ctrl+Alt+Esc"),
         new(HotkeyCommand.NextWindow, "Ctrl+Alt+Right"),
         new(HotkeyCommand.PreviousWindow, "Ctrl+Alt+Left"),
         new(HotkeyCommand.HideCurrent, "Ctrl+Alt+Down"),
         new(HotkeyCommand.FocusTimer, "Ctrl+Alt+T"),
         new(HotkeyCommand.NextProfile, "Ctrl+Alt+P"),
+        new(HotkeyCommand.Dock, "Ctrl+Alt+D"),
+        new(HotkeyCommand.TrayMode, "Ctrl+Alt+M"),
     ];
 
     /// <summary>

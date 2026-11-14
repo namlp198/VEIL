@@ -72,6 +72,8 @@ public interface IWindowService
     bool Reveal(string runtimeId);
     /// <summary>Places the window behind the overlay without closing, minimizing or suspending it.</summary>
     bool Hide(string runtimeId);
+    /// <summary>Tray mode (no overlay): puts the window away by minimizing it. Defaults to <see cref="Hide"/>.</summary>
+    bool Minimize(string runtimeId) => Hide(runtimeId);
 }
 
 public sealed record HotkeyRegistrationResult(bool Success, string? Error)
@@ -134,36 +136,73 @@ public interface IProtectedStorage
     void EnsureProtectedDirectory(string path);
 }
 
-/// <summary>
-/// One selector entry. <see cref="Text"/> is the plain one-line form (accessibility name, tests); the other members let a
-/// view draw the title, application and the two status badges. Policy and state are always words, never colour alone.
-/// </summary>
-public sealed record SelectorRow(int Number, string Text, bool IsAllowed, string Title = "", string Application = "", string State = "");
-
-/// <summary>Where and how large the selector should be, in physical pixels, plus the display scale for fonts.</summary>
+/// <summary>Where and how large a HUD window (the password form, the dock's display) should be, in physical pixels, plus the display scale for fonts.</summary>
 public sealed record SelectorPlacement(WindowBounds Bounds, double Scale, string DisplayId);
 
-public sealed record SelectorViewState(string Filter, bool OnlyAllowed, IReadOnlyList<SelectorRow> Rows, int SelectedIndex, string Status);
+// ---- Dock: the allowed applications, docked at the left edge (opened with Tab) ---------------------------------------
 
 /// <summary>
-/// A real, focusable Window Selector surface (UI/UX 3.2). It owns native text input, so input methods work normally and
-/// no global key capture is needed. Events are raised on a worker thread, never on the window thread, and in order; a
-/// handler that blocks therefore cannot freeze the window thread (ADR-009).
+/// How Focus Mode looks. <b>Panel</b> is the full lock: the overlay covers every screen and the allowed-apps list opens on
+/// demand. <b>Tray</b> takes the curtain away and leaves a slim, always-visible tray of pinned applications on the screen
+/// edge; a window dragged onto it is put away there and a click brings it back. A hotkey switches between the two.
 /// </summary>
-public interface ISelectorView : IDisposable
+public enum DockMode { Panel, Tray }
+
+/// <summary>
+/// One tile. In the list it is one allowed window; in the tray it is one pinned application (<see cref="RuntimeId"/> is empty
+/// when that application has no window right now).
+/// </summary>
+public sealed record DockTile(string RuntimeId, string ApplicationId, string AppName, string Title, bool IsShown, bool IsPinned);
+
+public sealed record DockViewState(DockMode Mode, bool Expanded, IReadOnlyList<DockTile> Tiles, IReadOnlyList<DockTile> Pinned, string Status,
+    IReadOnlyList<string>? Workspaces = null, string? ActiveWorkspace = null);
+
+/// <summary>
+/// The dock surface. It never takes keyboard focus (so the application in front keeps it) and, like the selector, raises its
+/// events on a worker thread, never on the window thread (ADR-009).
+/// </summary>
+public interface IDockView : IDisposable
 {
     bool IsVisible { get; }
-    void Show(SelectorViewState state, SelectorPlacement placement);
-    void Update(SelectorViewState state);
+    /// <summary><paramref name="area"/> is the display's bounds; the view docks itself to the left edge of it.</summary>
+    void Show(DockViewState state, SelectorPlacement area);
+    void Update(DockViewState state);
     void Hide();
 
-    event Action<string>? FilterChanged;
-    event Action<int>? SelectionChanged;
-    event Action<bool>? OnlyAllowedChanged;
-    /// <summary>Enter, double click.</summary>
-    event Action? ConfirmRequested;
-    /// <summary>Esc, or the selector lost the user's attention.</summary>
-    event Action? CancelRequested;
-    /// <summary>A digit 1-9 pressed while the list has focus.</summary>
-    event Action<int>? NumberPressed;
+    /// <summary>A tile was clicked: show or hide that window.</summary>
+    event Action<string>? TileClicked;
+    /// <summary>
+    /// Tray mode: a window of another program was dragged by its title bar and dropped on the dock (argument: its runtime id).
+    /// </summary>
+    event Action<string>? WindowDropped;
+    /// <summary>Tray mode: the "Lock" button on the strip asks to go back to the full lock.</summary>
+    event Action? LockRequested;
+    /// <summary>The X on a list tile: take that application out of the tray (argument: application id).</summary>
+    event Action<string>? RemoveRequested;
+    /// <summary>A workspace chip was clicked (null: all allowed applications).</summary>
+    event Action<string?>? WorkspaceRequested;
+    /// <summary>An application tile was dropped on the tray (argument: application id).</summary>
+    event Action<string>? PinRequested;
+    /// <summary>A tray tile was dropped outside the tray, or right-clicked (argument: application id).</summary>
+    event Action<string>? UnpinRequested;
+    /// <summary>The "…" button or the close button.</summary>
+    event Action? ExpandToggleRequested;
+}
+
+// ---- Unlock: the password form behind the lock icon of the full lock ----------------------------------------------------
+
+/// <summary>
+/// The password form. It is the only part of the full lock that takes keyboard input. Events are raised on a worker
+/// thread, never on the window thread (ADR-009).
+/// </summary>
+public interface IUnlockView : IDisposable
+{
+    bool IsVisible { get; }
+    /// <summary>Shows the form centred on <paramref name="placement"/>'s display and focuses the password box.</summary>
+    void Show(SelectorPlacement placement, string prompt);
+    void SetStatus(string text);
+    void Hide();
+
+    event Action<string>? Submitted;
+    event Action? Cancelled;
 }

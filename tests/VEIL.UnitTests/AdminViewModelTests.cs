@@ -238,7 +238,7 @@ public class AdminViewModelTests
     {
         var (vm, _, _) = Make(Alice, Alice);
         var hk = Hotkeys(vm);
-        Assert.Equal(Enum.GetValues<HotkeyCommand>().Length, hk.Rows.Count);
+        Assert.Equal(Enum.GetValues<HotkeyCommand>().Count(c => c != HotkeyCommand.Selector), hk.Rows.Count); // the retired Selector has no row
         Assert.True(hk.Rows.Single(r => r.Command == HotkeyCommand.EmergencyRecovery).IsLocked);
         Assert.Equal(1, hk.Rows.Count(r => r.IsLocked));
     }

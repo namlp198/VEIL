@@ -18,7 +18,9 @@ public sealed class WindowsPlatform : IDisposable
         Overlays = new WindowsOverlayHost(_thread);
         Windows = new WindowsWindowService();
         Hotkeys = new WindowsHotkeyService(_thread);
-        Selector = new WindowsSelectorView(_thread);
+        Dock = new WindowsDockView(_thread);
+        Unlock = new WindowsUnlockView(_thread);
+        KeyGuard = new WindowsKeyGuard(_thread);
         _thread.Stalled += silent => MessageThreadStalled?.Invoke(silent);
         _thread.Fault += message => Fault?.Invoke(message);
     }
@@ -48,7 +50,9 @@ public sealed class WindowsPlatform : IDisposable
     public WindowsOverlayHost Overlays { get; }
     public WindowsWindowService Windows { get; }
     public WindowsHotkeyService Hotkeys { get; }
-    public WindowsSelectorView Selector { get; }
+    public WindowsDockView Dock { get; }
+    public WindowsUnlockView Unlock { get; }
+    public WindowsKeyGuard KeyGuard { get; }
     public WindowsAuthenticationProvider Authentication { get; } = new();
     public WindowsSessionInspector Session { get; } = new();
     public WindowsProtectedStorage Storage { get; } = new();
@@ -61,7 +65,8 @@ public sealed class WindowsPlatform : IDisposable
 
     public void Dispose()
     {
-        Selector.Dispose();
+        try { KeyGuard.Dispose(); Unlock.Dispose(); } catch { /* window thread may already be gone */ }
+        try { Dock.Dispose(); } catch { /* window thread may already be gone */ }
         Hotkeys.Dispose();
         Displays.Dispose();
         _thread.Dispose();

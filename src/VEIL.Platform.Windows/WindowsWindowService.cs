@@ -155,4 +155,11 @@ public sealed class WindowsWindowService : IWindowService
         return Native.SetWindowPos(hWnd, Native.HWND_NOTOPMOST, 0, 0, 0, 0,
             Native.SWP_NOMOVE | Native.SWP_NOSIZE | Native.SWP_NOACTIVATE | Native.SWP_ASYNCWINDOWPOS);
     }
+
+    public bool Minimize(string runtimeId)
+    {
+        if (!TryParse(runtimeId, out var hWnd)) return false;
+        Native.SetWindowPos(hWnd, Native.HWND_NOTOPMOST, 0, 0, 0, 0, Native.SWP_NOMOVE | Native.SWP_NOSIZE | Native.SWP_NOACTIVATE | Native.SWP_ASYNCWINDOWPOS);
+        return Native.ShowWindowAsync(hWnd, Native.SW_MINIMIZE);
+    }
 }

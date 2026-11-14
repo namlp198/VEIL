@@ -17,7 +17,7 @@ internal static class Native
     public const int GWL_EXSTYLE = -20, GW_OWNER = 4;
     public const uint SWP_NOSIZE = 0x1, SWP_NOMOVE = 0x2, SWP_NOACTIVATE = 0x10, SWP_SHOWWINDOW = 0x40;
     public static readonly IntPtr HWND_TOPMOST = new(-1), HWND_NOTOPMOST = new(-2);
-    public const int SW_SHOWNOACTIVATE = 4, SW_RESTORE = 9;
+    public const int SW_SHOWNOACTIVATE = 4, SW_RESTORE = 9, SW_MINIMIZE = 6, SW_MAXIMIZE = 3;
     public const uint MOD_ALT = 1, MOD_CONTROL = 2, MOD_SHIFT = 4, MOD_WIN = 8, MOD_NOREPEAT = 0x4000;
     public const uint MONITORINFOF_PRIMARY = 1;
     public const int MDT_EFFECTIVE_DPI = 0;
@@ -102,6 +102,7 @@ internal static class Native
     [DllImport(User32)] public static extern bool PostThreadMessage(uint threadId, uint msg, IntPtr wParam, IntPtr lParam);
     [DllImport(User32, SetLastError = true)] public static extern bool RegisterHotKey(IntPtr hWnd, int id, uint modifiers, uint vk);
     [DllImport(User32)] public static extern bool UnregisterHotKey(IntPtr hWnd, int id);
+    [DllImport(User32)] public static extern IntPtr SetCursor(IntPtr cursor);
     [DllImport(User32)] public static extern IntPtr LoadCursor(IntPtr hInstance, IntPtr name);
     [DllImport(User32)] public static extern bool InvalidateRect(IntPtr hWnd, IntPtr rect, bool erase);
     [DllImport(User32)] public static extern IntPtr BeginPaint(IntPtr hWnd, out PAINTSTRUCT ps);
@@ -220,4 +221,44 @@ internal static class Native
 
     [DllImport(Kernel32)] public static extern bool GetSystemTimes(out FILETIME idle, out FILETIME kernel, out FILETIME user);
     [DllImport(Kernel32)] public static extern bool GlobalMemoryStatusEx(ref MEMORYSTATUSEX status);
+
+    // ---- dock: mouse, icons --------------------------------------------------------------------------------------------
+
+    public const uint WM_MOUSEACTIVATE = 0x0021, WM_MOUSEMOVE = 0x0200, WM_LBUTTONDOWN = 0x0201, WM_LBUTTONUP = 0x0202,
+        WM_RBUTTONUP = 0x0205, WM_CAPTURECHANGED = 0x0215;
+    public const int MA_NOACTIVATE = 3, VK_LBUTTON = 0x01, DI_NORMAL = 3;
+    public const uint SHGFI_ICON = 0x100, SHGFI_LARGEICON = 0;
+
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+    public struct SHFILEINFO
+    {
+        public IntPtr hIcon; public int iIcon; public uint dwAttributes;
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 260)] public string szDisplayName;
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 80)] public string szTypeName;
+    }
+
+    [DllImport("shell32.dll", CharSet = CharSet.Unicode)]
+    public static extern IntPtr SHGetFileInfo(string path, uint attrs, ref SHFILEINFO info, uint size, uint flags);
+    [DllImport(User32)] public static extern bool DrawIconEx(IntPtr hdc, int x, int y, IntPtr icon, int w, int h, uint step, IntPtr brush, uint flags);
+    [DllImport(User32)] public static extern bool DestroyIcon(IntPtr icon);
+    [DllImport(User32)] public static extern IntPtr SetCapture(IntPtr hWnd);
+    [DllImport(User32)] public static extern bool ReleaseCapture();
+    [DllImport(User32)] public static extern short GetKeyState(int key);
+    [DllImport(Gdi32)] public static extern IntPtr CreateRoundRectRgn(int l, int t, int r, int b, int w, int h);
+
+    // ---- tray mode: finding the window being dragged ---------------------------------------------------------------------
+    public const uint WM_NCHITTEST = 0x0084, SWP_NOZORDER = 0x0004;
+    [DllImport(User32)] public static extern bool IsZoomed(IntPtr hWnd);
+    public const int HTCAPTION = 2, GA_ROOT = 2;
+    [DllImport(User32)] public static extern short GetAsyncKeyState(int key);
+    [DllImport(User32)] public static extern IntPtr WindowFromPoint(POINT p);
+    [DllImport(User32)] public static extern IntPtr GetAncestor(IntPtr hWnd, uint flags);
+
+    // ---- full lock: password box, Windows key hook -----------------------------------------------------------------------
+    public const uint ES_PASSWORD = 0x20, BS_DEFPUSHBUTTON = 0x1;
+    public const int WH_KEYBOARD_LL = 13, HC_ACTION = 0, VK_LWIN = 0x5B, VK_RWIN = 0x5C;
+    public delegate IntPtr HookProc(int code, IntPtr wParam, IntPtr lParam);
+    [DllImport(User32, SetLastError = true)] public static extern IntPtr SetWindowsHookEx(int id, HookProc proc, IntPtr module, uint threadId);
+    [DllImport(User32)] public static extern bool UnhookWindowsHookEx(IntPtr hook);
+    [DllImport(User32)] public static extern IntPtr CallNextHookEx(IntPtr hook, int code, IntPtr wParam, IntPtr lParam);
 }

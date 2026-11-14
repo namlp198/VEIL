@@ -31,7 +31,19 @@ public sealed class WindowsOverlayHost : IOverlayHost
     private static bool _registered;
     private static readonly ConcurrentDictionary<IntPtr, OverlayStyle> Styles = new();
     private static volatile Func<HudSnapshot>? _hud;
+    private static readonly ConcurrentDictionary<IntPtr, byte> Primaries = new();
+    private static Win32Thread? _sharedThread;
+    private static volatile Action? _unlockRequested, _trayRequested;
     private readonly Win32Thread _thread;
+
+    /// <summary>
+    /// The small lock icon at the top right of the primary display was clicked. Raised on the command thread. It is the only
+    /// thing on the overlay that reacts to the mouse.
+    /// </summary>
+    public Action? UnlockRequested { get => _unlockRequested; set => _unlockRequested = value; }
+
+    /// <summary>The tray icon next to the lock icon was clicked: switch to tray mode. Raised on the command thread.</summary>
+    public Action? TrayRequested { get => _trayRequested; set => _trayRequested = value; }
 
     /// <summary>Diagnostic: forces the text/graphics scale instead of the display's (exercises high-scale rendering).</summary>
     public double? ScaleOverride { get; set; }
@@ -52,7 +64,7 @@ public sealed class WindowsOverlayHost : IOverlayHost
         public IntPtr[] Fonts => [Wordmark, Caption, Hint, Small, Clock];
     }
 
-    internal WindowsOverlayHost(Win32Thread thread) => _thread = thread;
+    internal WindowsOverlayHost(Win32Thread thread) { _thread = thread; _sharedThread = thread; }
 
     public IOverlaySurface Create(DisplayInfo display) => _thread.Invoke(() =>
     {
@@ -76,6 +88,7 @@ public sealed class WindowsOverlayHost : IOverlayHost
             Palette.Font(sizes["caption"], scale),
             Palette.Font(sizes["title"], scale));
 
+        if (display.IsPrimary) Primaries[hwnd] = 1;
         if (animated) Native.SetLayeredWindowAttributes(hwnd, 0, 0, Native.LWA_ALPHA); // starts invisible, fades in
         Native.SetWindowPos(hwnd, Native.HWND_TOPMOST, b.X, b.Y, b.Width, b.Height, Native.SWP_NOACTIVATE | Native.SWP_SHOWWINDOW);
         Native.SetTimer(hwnd, ClockTimer, 1000, IntPtr.Zero);
@@ -96,6 +109,7 @@ public sealed class WindowsOverlayHost : IOverlayHost
             lpfnWndProc = Marshal.GetFunctionPointerForDelegate(Proc),
             hInstance = Native.GetModuleHandle(null),
             hbrBackground = Palette.Brush("bg.canvas"),
+            hCursor = Native.LoadCursor(IntPtr.Zero, new IntPtr(32512)), // without a class cursor the pointer is not drawn over the overlay
             lpszClassName = ClassName,
         };
         if (Native.RegisterClassEx(ref cls) == 0) throw new InvalidOperationException("Overlay window class registration failed.");
@@ -121,6 +135,29 @@ public sealed class WindowsOverlayHost : IOverlayHost
                 }
                 case Native.WM_TIMER:
                     if (Styles.TryGetValue(hWnd, out var st)) OnTimer(hWnd, st, (UIntPtr)(nuint)wParam.ToInt64());
+                    return IntPtr.Zero;
+                case 0x0020: // WM_SETCURSOR: arrow everywhere, a hand over the lock icon
+                {
+                    var hand = false;
+                    if (Primaries.ContainsKey(hWnd) && Styles.TryGetValue(hWnd, out var cs) && Native.GetCursorPos(out var cp))
+                    {
+                        Native.GetWindowRect(hWnd, out var wr);
+                        Native.GetClientRect(hWnd, out var cr);
+                        var x = cp.X - wr.Left; var y = cp.Y - wr.Top;
+                        hand = InRect(UnlockIconRect(cr.Right - cr.Left, cs.Scale), x, y) || InRect(TrayIconRect(cr.Right - cr.Left, cs.Scale), x, y);
+                    }
+                    Native.SetCursor(Native.LoadCursor(IntPtr.Zero, new IntPtr(hand ? 32649 : 32512)));
+                    return new IntPtr(1);
+                }
+                case Native.WM_LBUTTONUP:
+                    if (Primaries.ContainsKey(hWnd) && Styles.TryGetValue(hWnd, out var ls))
+                    {
+                        Native.GetClientRect(hWnd, out var crc);
+                        var px = (short)(lParam.ToInt64() & 0xFFFF);
+                        var py = (short)((lParam.ToInt64() >> 16) & 0xFFFF);
+                        if (InRect(UnlockIconRect(crc.Right - crc.Left, ls.Scale), px, py)) _sharedThread?.Post(() => _unlockRequested?.Invoke());
+                        else if (InRect(TrayIconRect(crc.Right - crc.Left, ls.Scale), px, py)) _sharedThread?.Post(() => _trayRequested?.Invoke());
+                    }
                     return IntPtr.Zero;
             }
         }
@@ -160,6 +197,25 @@ public sealed class WindowsOverlayHost : IOverlayHost
     }
 
     // ---- geometry shared by painting and invalidation --------------------------------------------------------------------
+
+    /// <summary>The lock icon: a quiet circle in the top right corner (client coordinates).</summary>
+    private static Native.RECT UnlockIconRect(int width, double s)
+    {
+        var size = Palette.Px(40, s);
+        var margin = Palette.Px(24, s);
+        return new Native.RECT { Left = width - margin - size, Top = margin, Right = width - margin, Bottom = margin + size };
+    }
+
+    /// <summary>The tray icon sits just left of the lock icon.</summary>
+    private static Native.RECT TrayIconRect(int width, double s)
+    {
+        var lockIcon = UnlockIconRect(width, s);
+        var size = lockIcon.Right - lockIcon.Left;
+        var gap = Palette.Px(12, s);
+        return new Native.RECT { Left = lockIcon.Left - gap - size, Top = lockIcon.Top, Right = lockIcon.Left - gap, Bottom = lockIcon.Bottom };
+    }
+
+    private static bool InRect(Native.RECT r, int x, int y) => x >= r.Left && x < r.Right && y >= r.Top && y < r.Bottom;
 
     private readonly record struct Geo(int Cx, int Cy, int R, int R2, Native.RECT Hud, Native.RECT Clock, Native.RECT Info, Native.RECT Status);
 
@@ -376,12 +432,51 @@ public sealed class WindowsOverlayHost : IOverlayHost
             Native.DrawText(hdc, string.Join("    ", parts), -1, ref status, Native.DT_LEFT | Native.DT_VCENTER | Native.DT_SINGLELINE | Native.DT_NOPREFIX);
         }
 
-        // --- recovery shortcut (NFR-UX-001): always visible, readable, bottom centre
-        var margin = Math.Max(Palette.Px(12, s), h / 40);
-        Native.SelectObject(hdc, st.Hint);
-        Native.SetTextColor(hdc, t.Color("text.muted").ToColorRef());
-        var hint = new Native.RECT { Left = rc.Left, Right = rc.Right, Top = rc.Bottom - 4 * margin, Bottom = rc.Bottom - margin };
-        Native.DrawText(hdc, "Emergency Recovery: Ctrl+Alt+Esc", -1, ref hint, Native.DT_CENTER | Native.DT_VCENTER | Native.DT_SINGLELINE | Native.DT_NOPREFIX);
+        // --- the way out: a small lock icon, top right of the primary display only. No shortcut is written on the screen.
+        if (Primaries.ContainsKey(hWnd))
+        {
+            var ic = UnlockIconRect(w, s);
+            var ring = Native.CreatePen(Native.PS_SOLID, Math.Max(1, Palette.Px(1, s)), t.Color("border.strong").ToColorRef());
+            var oldRing = Native.SelectObject(hdc, ring);
+            var oldFill = Native.SelectObject(hdc, Palette.Brush(canvas.Mix(t.Color("bg.raised"), 0.6)));
+            Native.Ellipse(hdc, ic.Left, ic.Top, ic.Right, ic.Bottom);
+            Native.SelectObject(hdc, oldFill);
+            Native.SelectObject(hdc, oldRing);
+            Native.DeleteObject(ring);
+
+            // padlock: body, and a shackle drawn as an arch above it
+            int icx = (ic.Left + ic.Right) / 2, icy = (ic.Top + ic.Bottom) / 2, u = Math.Max(1, Palette.Px(1, s));
+            var glyph = Native.CreatePen(Native.PS_SOLID, Math.Max(2, Palette.Px(2, s)), t.Color("text.secondary").ToColorRef());
+            var oldGlyph = Native.SelectObject(hdc, glyph);
+            var oldNone = Native.SelectObject(hdc, Native.GetStockObject(Native.NULL_BRUSH));
+            Native.RoundRect(hdc, icx - 8 * u, icy - 1 * u, icx + 8 * u, icy + 9 * u, 3 * u, 3 * u);
+            Native.Arc(hdc, icx - 5 * u, icy - 11 * u, icx + 5 * u, icy + 1 * u, icx + 5 * u, icy - 5 * u, icx - 5 * u, icy - 5 * u);
+            Native.SelectObject(hdc, oldNone);
+            Native.SelectObject(hdc, oldGlyph);
+            Native.DeleteObject(glyph);
+        }
+        // tray icon (primary display): a window with a docked strip on its left edge; click switches to tray mode
+        if (Primaries.ContainsKey(hWnd))
+        {
+            var tc = TrayIconRect(w, s);
+            var ring = Native.CreatePen(Native.PS_SOLID, Math.Max(1, Palette.Px(1, s)), t.Color("border.strong").ToColorRef());
+            var oldRing = Native.SelectObject(hdc, ring);
+            var oldFill = Native.SelectObject(hdc, Palette.Brush(canvas.Mix(t.Color("bg.raised"), 0.6)));
+            Native.Ellipse(hdc, tc.Left, tc.Top, tc.Right, tc.Bottom);
+            Native.SelectObject(hdc, oldFill);
+            Native.SelectObject(hdc, oldRing);
+            Native.DeleteObject(ring);
+            int tcx = (tc.Left + tc.Right) / 2, tcy = (tc.Top + tc.Bottom) / 2, u = Math.Max(1, Palette.Px(1, s));
+            var glyph = Native.CreatePen(Native.PS_SOLID, Math.Max(2, Palette.Px(2, s)), t.Color("text.secondary").ToColorRef());
+            var oldGlyph = Native.SelectObject(hdc, glyph);
+            var oldNone = Native.SelectObject(hdc, Native.GetStockObject(Native.NULL_BRUSH));
+            Native.RoundRect(hdc, tcx - 9 * u, tcy - 7 * u, tcx + 9 * u, tcy + 7 * u, 3 * u, 3 * u);
+            Native.MoveToEx(hdc, tcx - 4 * u, tcy - 7 * u, IntPtr.Zero);
+            Native.LineTo(hdc, tcx - 4 * u, tcy + 7 * u);
+            Native.SelectObject(hdc, oldNone);
+            Native.SelectObject(hdc, oldGlyph);
+            Native.DeleteObject(glyph);
+        }
         Native.SelectObject(hdc, oldFont);
     }
 
@@ -407,6 +502,7 @@ public sealed class WindowsOverlayHost : IOverlayHost
                 thread.Invoke(() =>
                 {
                     if (Native.IsWindow(hwnd)) Native.DestroyWindow(hwnd);
+                    Primaries.TryRemove(hwnd, out _);
                     if (Styles.TryRemove(hwnd, out var st))
                         foreach (var f in st.Fonts) if (f != IntPtr.Zero) Native.DeleteObject(f);
                 });

@@ -78,7 +78,7 @@ public sealed class JsonConfigurationStore : IConfigurationStore
         catch (JsonException ex) { throw new ConfigurationException($"{origin} is not valid VEIL configuration: {ex.Message}", ex); }
         if (cfg is null) throw new ConfigurationException($"{origin} is empty.");
         // Shortcuts added by a newer VEIL appear on upgrade; stored bindings are never altered.
-        if (cfg.Hotkeys is not null) cfg = cfg with { Hotkeys = DefaultHotkeys.WithMissingDefaults(cfg.Hotkeys) };
+        if (cfg.Hotkeys is not null) cfg = cfg with { Hotkeys = DefaultHotkeys.WithMissingDefaults(cfg.Hotkeys.Where(h => h.Command != HotkeyCommand.Selector).ToList()) };
         Validate(cfg);
         return cfg;
     }

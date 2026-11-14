@@ -1,4 +1,5 @@
 using VEIL.Domain;
+using VEIL.Platform.Abstractions;
 
 namespace VEIL.Application;
 
@@ -7,7 +8,13 @@ public interface IUserStateStore
 {
     string? LoadActiveWorkspace();
     void SaveActiveWorkspace(string? name);
+
+    /// <summary>The dock's mode and pinned tray applications. Defaults keep older stores working.</summary>
+    DockSettings LoadDock() => new();
+    void SaveDock(DockSettings settings) { }
 }
+
+public sealed record DockSettings(DockMode Mode = DockMode.Panel, IReadOnlyList<string>? PinnedApps = null);
 
 /// <summary>
 /// Tracks which workspace profile is active and cycles through them (UI/UX 4.1). The sequence is "all allowed

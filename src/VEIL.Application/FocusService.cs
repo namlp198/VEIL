@@ -23,6 +23,7 @@ public sealed class FocusService : IDisposable
     // is blocked inside the platform (ADR-009).
     private readonly object _revealedGate = new();
     private readonly HashSet<string> _revealed = new();
+    private volatile bool _tray;
 
     public FocusService(
         FocusStateMachine machine,
@@ -45,6 +46,12 @@ public sealed class FocusService : IDisposable
 
     public FocusState State => _machine.State;
     public string? LastError { get; private set; }
+
+    /// <summary>
+    /// Tray mode: Focus Mode is on, but no overlay covers the screen. Windows are put away by minimizing them (there is no
+    /// overlay to hide behind) and the dock's tray strip is the way back to them. See <see cref="SetTrayMode"/>.
+    /// </summary>
+    public bool IsTrayMode => _tray;
     public IReadOnlyCollection<string> RevealedWindowIds { get { lock (_revealedGate) return _revealed.ToList(); } }
 
     /// <summary>Focus On: arm recovery first, then create overlays. FR-LIFE-001, architecture 10.</summary>
@@ -58,6 +65,7 @@ public sealed class FocusService : IDisposable
                 return new(false, $"Cannot enter Focus Mode from state {_machine.State}.");
             try
             {
+                _tray = false;
                 _recovery.Arm();
                 _overlays.Show();
                 _machine.Transition(FocusState.Focused);
@@ -71,6 +79,39 @@ public sealed class FocusService : IDisposable
                 _diag.Report($"Focus On failed: {ex.Message}");
                 _machine.TryTransition(FocusState.ErrorSafe);
                 return new(false, $"Focus Mode could not start: {ex.Message}");
+            }
+        }
+    }
+
+    /// <summary>
+    /// Switches between the full lock (overlays on every display) and tray mode (no overlays). Recovery stays armed in both,
+    /// and Focus Off / Emergency Recovery work the same. Windows shown above the overlay go back to normal layering first.
+    /// </summary>
+    public ActionResult SetTrayMode(bool tray)
+    {
+        lock (_gate)
+        {
+            if (_machine.State is not (FocusState.Focused or FocusState.SelectorOpen))
+                return new(false, "Focus Mode is not active.");
+            if (_tray == tray) return new(true, tray ? "Already in tray mode." : "Already in full lock.");
+            if (tray)
+            {
+                _tray = true;
+                ReleaseRevealed(TakeRevealed());
+                _overlays.Teardown();
+                return new(true, "Tray mode: the screen is free; drag a window onto the tray to put it away.");
+            }
+            try
+            {
+                _overlays.Show();
+                _tray = false;
+                return new(true, "Full lock: the overlay covers every display again.");
+            }
+            catch (Exception ex)
+            {
+                _overlays.Teardown();
+                _diag.Report($"Returning to full lock failed: {ex.Message}");
+                return new(false, $"Could not cover the screen again: {ex.Message}");
             }
         }
     }
@@ -182,28 +223,23 @@ public sealed class FocusService : IDisposable
     /// <summary>Hides one window behind the overlay without terminating it (FR-WIN-005, FR-APP-006).</summary>
     public ActionResult Hide(string runtimeId)
     {
-        var ok = _windows.Hide(runtimeId);
+        var ok = _tray ? _windows.Minimize(runtimeId) : _windows.Hide(runtimeId);
         lock (_revealedGate) _revealed.Remove(runtimeId);
-        return ok ? new(true, "Window hidden behind the overlay.") : new(false, "Window is no longer available.");
+        if (!ok) return new(false, "Window is no longer available.");
+        return new(true, _tray ? "Window put away in the tray." : "Window hidden behind the overlay.");
     }
 
     /// <summary>Hide All: places overlays above every work window; nothing is closed or minimized.</summary>
     public ActionResult HideAll()
     {
         var ids = TakeRevealed();
-        foreach (var id in ids) _windows.Hide(id);
+        foreach (var id in ids) { if (_tray) _windows.Minimize(id); else _windows.Hide(id); }
         return new(true, $"Hid {ids.Count} window(s).");
     }
 
-    public ActionResult OpenSelector() =>
-        _machine.TryTransition(FocusState.SelectorOpen) ? new(true, "Selector open.") : new(false, "Selector is available only in Focus Mode.");
-
-    public ActionResult CloseSelector() =>
-        _machine.TryTransition(FocusState.Focused) ? new(true, "Selector closed.") : new(false, "Selector is not open.");
-
     private void OnTopologyChanged(object? sender, DisplayTopologyChangedEventArgs e)
     {
-        if (_machine.State is not (FocusState.Focused or FocusState.SelectorOpen)) return;
+        if (_machine.State is not (FocusState.Focused or FocusState.SelectorOpen) || _tray) return;
         try { _overlays.Reconcile(); }
         catch (Exception ex) { _diag.Report($"Display reconciliation failed: {ex.Message}"); }
     }

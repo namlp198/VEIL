@@ -169,7 +169,6 @@ public class FocusServiceTests
     {
         using var r = new Rig(2);
         r.Focus.FocusOn();
-        r.Focus.OpenSelector();
         r.Focus.EmergencyRecover();
         r.Focus.EmergencyRecover();
         Assert.Equal(0, r.Host.Live);
@@ -285,16 +284,6 @@ public class FocusServiceTests
         r.Displays.Current.Add(FakeDisplays.Make(1));
         r.Displays.Raise();
         Assert.Empty(r.Host.Created);
-    }
-
-    [Fact]
-    public void Selector_is_only_available_in_focus()
-    {
-        using var r = new Rig();
-        Assert.False(r.Focus.OpenSelector().Success);
-        r.Focus.FocusOn();
-        Assert.True(r.Focus.OpenSelector().Success);
-        Assert.True(r.Focus.CloseSelector().Success);
     }
 
     [Fact] // FR-LIFE-003

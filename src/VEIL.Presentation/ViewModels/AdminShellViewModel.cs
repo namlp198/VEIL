@@ -62,7 +62,7 @@ public sealed partial class AdminShellViewModel : ObservableObject
             new("Appearance", "Whole machine", true, () => new AppearancePageViewModel(admin, store)),
             new("Workspace Profiles", "Whole machine", true, () => new ProfilesPageViewModel(admin, store)),
             new("Focus Timer", "Whole machine", true, () => new FocusTimerPageViewModel(admin, store, sessions)),
-            new("Security", "Whole machine", true, () => new SecurityPageViewModel(auth, store)),
+            new("Security", "Whole machine", true, () => new SecurityPageViewModel(auth, store, admin)),
             new("Diagnostics", "This user", true, () => new DiagnosticsPageViewModel(session, store, displays, version)),
             new("Backup & Restore", "Whole machine", false, () => new PlaceholderPageViewModel("Backup & Restore", "Validated export and import of the configuration.")),
         ];

@@ -22,8 +22,13 @@ internal sealed class FocusRuntime : IDisposable
     private readonly WindowsPlatform _native;
     private readonly Func<VeilConfiguration> _config;
     private readonly Action<string> _log;
-    private readonly SelectorController _selectorUi;
     private readonly WindowSelectorService _selector;
+    private readonly DockController _dock;
+    private readonly UnlockController _unlock;
+    private bool _keysBlocked;
+    private readonly object _tabGate = new();
+    private const string TabKey = "dock-tab";
+    private bool _tabRegistered;
     private readonly List<string> _visible = [];   // reveal order; HideCurrent pops the most recent
     private readonly Timer _sampler;
     private string? _current;
@@ -46,12 +51,26 @@ internal sealed class FocusRuntime : IDisposable
         ApplicationPolicy Policy() => new(_config().Rules, Profiles.Active);
         Focus = new FocusService(Machine, native.Displays, native.Windows, overlays, recovery, Policy, diag);
         _selector = new WindowSelectorService(native.Windows, Policy, () => Focus.RevealedWindowIds);
-        var session = new SelectorSession(Focus, _selector);
 
+        // The panel and the tray always sit at the top left of display 1 (the primary display), whatever the pointer does.
+        SelectorPlacement PrimaryArea()
+        {
+            var primary = SelectorPlacementCalculator.PickDisplay(native.Displays.GetDisplays(), null, false);
+            return new SelectorPlacement(primary.Bounds, scaleOverride is > 0 ? scaleOverride.Value : (primary.ScaleFactor > 0 ? primary.ScaleFactor : 1.0), primary.Id);
+        }
+        _dock = new DockController(Focus, _selector, native.Dock, PrimaryArea, userState, Profiles) { Log = log };
+
+        // The lock icon (top right of display 1) opens the password form; the right password ends the full lock.
+        _unlock = new UnlockController(native.Unlock, pw => LockPassword.Verify(pw, _config().LockPasswordHash),
+            () => SelectorPlacementCalculator.Compute(native.Displays.GetDisplays(), null, false, scaleOverride),
+            () => { var r = Focus.FocusOff(); ResetVisible(); if (EndOnOff) EndRequested?.Invoke(); return r; },
+            () => { var r = _dock.SetMode(DockMode.Tray); _log(r.Message); ResetVisible(); RefreshHud(); SyncTabKey(); return r; });
+        native.Overlays.UnlockRequested = () => Guard(_unlock.Open);
+        native.Overlays.TrayRequested = () => Guard(_unlock.OpenForTray); // the tray icon asks for the password; the hotkey does not
+
+        _dock.Changed += () => OffThread(SyncTabKey); // entering or leaving tray mode changes who owns Tab
         native.Overlays.ScaleOverride = scaleOverride;
         native.Overlays.HudProvider = BuildHud;
-        _selectorUi = new SelectorController(session, native.Selector, () => SelectorPlacementCalculator.Compute(
-            native.Displays.GetDisplays(), native.Displays.GetPointerPosition(), _config().Preferences.SelectorOnPointerDisplay, scaleOverride));
 
         // Faults that were contained on platform threads, and the last-resort watchdog.
         native.Fault += message => _log("[fault] " + message);
@@ -62,8 +81,8 @@ internal sealed class FocusRuntime : IDisposable
         Machine.StateChanged += (_, e) =>
         {
             var ended = e.Current is FocusState.Inactive or FocusState.Recovering or FocusState.ErrorSafe;
-            if (e.Previous == FocusState.SelectorOpen && e.Current != FocusState.Focused) OffThread(_selectorUi.OnFocusEnded);
-            if (ended) OffThread(() => SessionTimer.Stop());
+            if (ended) { OffThread(() => SessionTimer.Stop()); OffThread(_unlock.Close); }
+            OffThread(SyncDock);
             OffThread(OnStateForSampler);
         };
         SessionTimer.Changed += () => OffThread(RefreshHud);
@@ -72,10 +91,16 @@ internal sealed class FocusRuntime : IDisposable
         {
             Guard(() => { if (Machine.State is FocusState.Focused or FocusState.SelectorOpen) _log(Focus.RefreshPolicy().Message); });
             RefreshHud();
+            _dock.Refresh(); // the panel and tray show the new workspace at once
         });
         native.Hotkeys.HotkeyPressed += (_, e) => Handle(e.Command);
+        native.Hotkeys.TransientPressed += (_, e) =>
+        {
+            if (e.Name != TabKey) return;
+            Guard(() => { _dock.Toggle(); SyncTabKey(); });
+        };
 
-        _sampler = new Timer(_ => Guard(() => { Sample(); RefreshHud(); }), null, Timeout.Infinite, Timeout.Infinite);
+        _sampler = new Timer(_ => Guard(() => { Sample(); RefreshHud(); _dock.Refresh(); SyncTabKey(); }), null, Timeout.Infinite, Timeout.Infinite);
     }
 
     public FocusService Focus { get; }
@@ -162,9 +187,14 @@ internal sealed class FocusRuntime : IDisposable
     private void HandleCore(HotkeyCommand command)
     {
         _log($"[hotkey] {command}");
+        if (command == HotkeyCommand.EmergencyRecovery) Guard(() => { _native.KeyGuard.BlockWindowsKeys(false); _keysBlocked = false; }); // keys back first
         switch (command)
         {
-            case HotkeyCommand.FocusOn: _log(TryFocusOn().Message); break;
+            case HotkeyCommand.FocusOn:
+                // In tray mode the Focus On key brings the full lock back, like the Lock button.
+                if (Focus.IsTrayMode) { _log(_dock.SetMode(DockMode.Panel).Message); ResetVisible(); RefreshHud(); SyncTabKey(); }
+                else _log(TryFocusOn().Message);
+                break;
             case HotkeyCommand.FocusOff: _log(Focus.FocusOff().Message); ResetVisible(); if (EndOnOff) EndRequested?.Invoke(); break;
             case HotkeyCommand.EmergencyRecovery: _log(Focus.EmergencyRecover().Message); ResetVisible(); if (EndOnOff) EndRequested?.Invoke(); break;
             case HotkeyCommand.HideAll: _log(Focus.HideAll().Message); ResetVisible(); RefreshHud(); break;
@@ -176,7 +206,8 @@ internal sealed class FocusRuntime : IDisposable
                 if (_current == target) _current = _visible.Count > 0 ? _visible[^1] : null;
                 RefreshHud();
                 break;
-            case HotkeyCommand.Selector: _log(_selectorUi.Toggle().Message); break;
+            case HotkeyCommand.Dock: _dock.Toggle(); SyncTabKey(); break;
+            case HotkeyCommand.TrayMode: _log(_dock.ToggleMode().Message); ResetVisible(); RefreshHud(); SyncTabKey(); break;
             case HotkeyCommand.NextWindow or HotkeyCommand.PreviousWindow:
                 var pick = WindowSelectorService.Cycle(_selector.BuildEntries(), _current, command == HotkeyCommand.NextWindow ? 1 : -1);
                 if (pick is null) { _log("No allowed windows to reveal."); break; }
@@ -217,6 +248,45 @@ internal sealed class FocusRuntime : IDisposable
         var (cpu, memory) = _native.SystemStats.Sample();
         _cpu = cpu ?? _cpu;
         _memory = memory ?? _memory;
+    }
+
+    /// <summary>Shows or hides the dock with Focus Mode, and keeps the Tab key in step. Runs off the recovery path.</summary>
+    private void SyncDock()
+    {
+        var on = Machine.State is FocusState.Focused or FocusState.SelectorOpen;
+        if (on) _dock.Start(); else _dock.Stop();
+        SyncTabKey();
+    }
+
+    /// <summary>
+    /// Tab opens the allowed-apps panel and closes it again. It is a bare key, so while it is registered no other program
+    /// receives it: VEIL therefore owns it for the whole full lock, including while apps are shown, so the panel can always be
+    /// reached to bring up another app (several can be shown at once). It is given back while the Window Selector is open
+    /// (the selector uses Tab between its controls) and in tray mode, where the real desktop is in use and the panel opens
+    /// with its hotkey or the tray's "..." button instead.
+    /// </summary>
+    private void SyncTabKey()
+    {
+        lock (_tabGate)
+        {
+            var state = Machine.State;
+            // The Windows keys do nothing during the full lock (and only then).
+            var blockKeys = state is FocusState.Focused or FocusState.SelectorOpen && !Focus.IsTrayMode;
+            if (blockKeys != _keysBlocked) { _native.KeyGuard.BlockWindowsKeys(blockKeys); _keysBlocked = blockKeys; }
+            var want = state == FocusState.Focused && !Focus.IsTrayMode;
+            if (want == _tabRegistered) return;
+            if (want)
+            {
+                var r = _native.Hotkeys.RegisterTransient(TabKey, KeyModifiers.None, "Tab");
+                _tabRegistered = r.Success;
+                if (!r.Success) _log($"[dock] Tab could not be reserved: {r.Error}");
+            }
+            else
+            {
+                _native.Hotkeys.UnregisterTransient(TabKey);
+                _tabRegistered = false;
+            }
+        }
     }
 
     private void RefreshHud()
@@ -260,7 +330,10 @@ internal sealed class FocusRuntime : IDisposable
     {
         _sampler.Dispose();
         SessionTimer.Dispose();
-        _selectorUi.Dispose();
+        _dock.Dispose();
+        _unlock.Dispose();
+        Guard(() => _native.KeyGuard.BlockWindowsKeys(false));
+        lock (_tabGate) { if (_tabRegistered) { _native.Hotkeys.UnregisterTransient(TabKey); _tabRegistered = false; } }
         Focus.Dispose(); // tears every overlay down
     }
 
