@@ -137,6 +137,32 @@ public sealed class WindowsWindowService : IWindowService
         return true;
     }
 
+    /// <summary>
+    /// Every visible window of a process, owned dialogs and popups included. The application, not one window, is what the
+    /// user shows and hides, so a dialog of a shown application must be layered with it (ADR-010).
+    /// </summary>
+    private static List<IntPtr> ProcessWindows(uint pid)
+    {
+        var found = new List<IntPtr>();
+        var clock = System.Diagnostics.Stopwatch.StartNew();
+        Native.EnumWindows((h, _) =>
+        {
+            if (clock.Elapsed > EnumerationBudget) return false;
+            try
+            {
+                Native.GetWindowThreadProcessId(h, out var p);
+                if (p != pid || !Native.IsWindowVisible(h)) return true;
+                if (Native.DwmGetWindowAttribute(h, Native.DWMWA_CLOAKED, out var cloaked, sizeof(int)) == 0 && cloaked != 0) return true;
+                found.Add(h);
+            }
+            catch (Exception ex) when (ex is not OutOfMemoryException) { /* skip this one */ }
+            return true;
+        }, IntPtr.Zero);
+        return found;
+    }
+
+    private static bool IsTopmost(IntPtr h) => ((long)Native.GetWindowLongPtr(h, Native.GWL_EXSTYLE) & Native.WS_EX_TOPMOST) != 0;
+
     public bool Reveal(string runtimeId)
     {
         if (!TryParse(runtimeId, out var hWnd)) return false;
@@ -145,21 +171,43 @@ public sealed class WindowsWindowService : IWindowService
         var ok = Native.SetWindowPos(hWnd, Native.HWND_TOPMOST, 0, 0, 0, 0,
             Native.SWP_NOMOVE | Native.SWP_NOSIZE | Native.SWP_SHOWWINDOW | Native.SWP_ASYNCWINDOWPOS);
         Native.SetForegroundWindow(hWnd); // may be refused by the OS; the window is still layered above the overlay
+        if (ok) KeepApplicationShown(runtimeId); // its dialogs go above the overlay with it
         return ok;
     }
 
     public bool Hide(string runtimeId)
     {
         if (!TryParse(runtimeId, out var hWnd)) return false;
+        Native.GetWindowThreadProcessId(hWnd, out var pid);
         // Asynchronous: lowering a window of a frozen program must return at once, like everything on the recovery path.
-        return Native.SetWindowPos(hWnd, Native.HWND_NOTOPMOST, 0, 0, 0, 0,
-            Native.SWP_NOMOVE | Native.SWP_NOSIZE | Native.SWP_NOACTIVATE | Native.SWP_ASYNCWINDOWPOS);
+        var ok = Lower(hWnd);
+        foreach (var h in ProcessWindows(pid)) if (h != hWnd) Lower(h); // the application goes back as a whole
+        return ok;
+    }
+
+    private static bool Lower(IntPtr h) => Native.SetWindowPos(h, Native.HWND_NOTOPMOST, 0, 0, 0, 0,
+        Native.SWP_NOMOVE | Native.SWP_NOSIZE | Native.SWP_NOACTIVATE | Native.SWP_ASYNCWINDOWPOS);
+
+    public bool KeepApplicationShown(string runtimeId)
+    {
+        if (!TryParse(runtimeId, out var hWnd)) return false;
+        Native.GetWindowThreadProcessId(hWnd, out var pid);
+        if (Native.IsHungAppWindow(hWnd)) return false;
+        foreach (var h in ProcessWindows(pid))
+        {
+            if (h == hWnd || IsTopmost(h)) continue; // already layered: leave the order the user made alone
+            Native.SetWindowPos(h, Native.HWND_TOPMOST, 0, 0, 0, 0,
+                Native.SWP_NOMOVE | Native.SWP_NOSIZE | Native.SWP_NOACTIVATE | Native.SWP_ASYNCWINDOWPOS);
+        }
+        return true;
     }
 
     public bool Minimize(string runtimeId)
     {
         if (!TryParse(runtimeId, out var hWnd)) return false;
-        Native.SetWindowPos(hWnd, Native.HWND_NOTOPMOST, 0, 0, 0, 0, Native.SWP_NOMOVE | Native.SWP_NOSIZE | Native.SWP_NOACTIVATE | Native.SWP_ASYNCWINDOWPOS);
+        Native.GetWindowThreadProcessId(hWnd, out var pid);
+        Lower(hWnd);
+        foreach (var h in ProcessWindows(pid)) if (h != hWnd) Lower(h); // owned dialogs follow their owner into the taskbar
         return Native.ShowWindowAsync(hWnd, Native.SW_MINIMIZE);
     }
 }

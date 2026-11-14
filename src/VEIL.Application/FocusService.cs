@@ -130,6 +130,7 @@ public sealed class FocusService : IDisposable
                 return new(false, $"Cannot leave Focus Mode from state {_machine.State}.");
             var revealed = TakeRevealed();
             _overlays.Teardown();
+            _tray = false; // a later Focus On must start as a full lock, not look like tray mode
             _machine.TryTransition(FocusState.Inactive);
             ReleaseRevealed(revealed);
             return new(true, "Focus Mode off. Desktop restored.");
@@ -146,6 +147,7 @@ public sealed class FocusService : IDisposable
         Isolated(() => _machine.TryTransition(FocusState.Recovering), "enter recovery");
         Isolated(_recovery.EmergencyTeardown, "recovery teardown");
         Isolated(_overlays.Teardown, "overlay teardown");
+        _tray = false;
         var revealed = TakeRevealed();
         Isolated(() =>
         {
@@ -216,15 +218,38 @@ public sealed class FocusService : IDisposable
         var decision = _policy().Evaluate(window);
         if (!decision.IsAllowed) return new(false, $"Not revealed: {decision.Reason}");
         if (!_windows.Reveal(runtimeId)) return new(false, "The window could not be revealed; the overlay remains in place.");
-        lock (_revealedGate) _revealed.Add(runtimeId);
+        // The application is shown as a whole: the platform layers its dialogs with it, and so do its other listed windows.
+        var siblings = SameApplication(window, _windows.GetWindows()).Where(w => _policy().Evaluate(w).IsAllowed).Select(w => w.RuntimeId);
+        lock (_revealedGate) { _revealed.Add(runtimeId); foreach (var s in siblings) _revealed.Add(s); }
         return new(true, $"Revealed '{window.Title}'.");
+    }
+
+    private static IEnumerable<WindowInfo> SameApplication(WindowInfo window, IEnumerable<WindowInfo> all) =>
+        all.Where(w => w.ProcessId == window.ProcessId && string.Equals(w.ApplicationId, window.ApplicationId, StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>
+    /// Focus Mode is on and windows are shown: dialogs an application opened after it was shown are layered with it, so the
+    /// overlay never swallows a dialog the user is about to type into (ADR-010). Cheap; does nothing in tray mode.
+    /// </summary>
+    public void KeepShownApplications()
+    {
+        if (_tray || _machine.State is not (FocusState.Focused or FocusState.SelectorOpen)) return;
+        foreach (var id in RevealedWindowIds)
+        {
+            try { _windows.KeepApplicationShown(id); }
+            catch (Exception ex) { _diag.Report($"Could not keep an application's dialogs shown: {ex.Message}"); }
+        }
     }
 
     /// <summary>Hides one window behind the overlay without terminating it (FR-WIN-005, FR-APP-006).</summary>
     public ActionResult Hide(string runtimeId)
     {
+        // The platform puts the whole application away, so its other windows stop counting as shown too.
+        var all = _windows.GetWindows();
+        var window = all.FirstOrDefault(w => w.RuntimeId == runtimeId);
         var ok = _tray ? _windows.Minimize(runtimeId) : _windows.Hide(runtimeId);
-        lock (_revealedGate) _revealed.Remove(runtimeId);
+        var group = window is null ? [] : SameApplication(window, all).Select(w => w.RuntimeId).ToList();
+        lock (_revealedGate) { _revealed.Remove(runtimeId); foreach (var s in group) _revealed.Remove(s); }
         if (!ok) return new(false, "Window is no longer available.");
         return new(true, _tray ? "Window put away in the tray." : "Window hidden behind the overlay.");
     }

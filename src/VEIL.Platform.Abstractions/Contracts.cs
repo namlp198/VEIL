@@ -74,6 +74,11 @@ public interface IWindowService
     bool Hide(string runtimeId);
     /// <summary>Tray mode (no overlay): puts the window away by minimizing it. Defaults to <see cref="Hide"/>.</summary>
     bool Minimize(string runtimeId) => Hide(runtimeId);
+    /// <summary>
+    /// Keeps the application of a shown window consistent: dialogs and other windows it opened since (including owned ones, which
+    /// <see cref="GetWindows"/> does not list) are layered with it above the overlay. Never activates anything. Defaults to nothing.
+    /// </summary>
+    bool KeepApplicationShown(string runtimeId) => true;
 }
 
 public sealed record HotkeyRegistrationResult(bool Success, string? Error)

@@ -12,3 +12,4 @@ Changes to platform support, security boundary, or overlay behavior require an A
 - [007 Packaging, auto-start and update](007-packaging-autostart-update.md)
 - [008 Design tokens and theme](008-design-tokens-and-theme.md)
 - [009 The window thread never runs logic and never waits on another process](009-window-thread-never-blocks.md)
+- [010 The application is the unit of visibility](010-application-is-the-unit-of-visibility.md)

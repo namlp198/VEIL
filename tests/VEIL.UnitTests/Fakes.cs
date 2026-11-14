@@ -57,6 +57,8 @@ internal sealed class FakeWindows : IWindowService
     public IReadOnlyList<WindowInfo> GetWindows() => Windows.ToList();
     public bool Reveal(string id) { if (RevealFails) return false; Raised.Add(id); return true; }
     public bool Hide(string id) => Raised.Remove(id) || Windows.Any(w => w.RuntimeId == id);
+    public List<string> Kept { get; } = [];
+    public bool KeepApplicationShown(string id) { Kept.Add(id); return true; }
 
     public static WindowInfo Win(string id, string app, string title = "t", WindowKind kind = WindowKind.Normal, bool minimized = false) =>
         new(id, "1", app, title, "D0", new WindowBounds(0, 0, 100, 100), !minimized, minimized, false, kind);

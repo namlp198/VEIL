@@ -30,7 +30,7 @@ internal sealed class FocusRuntime : IDisposable
     private const string TabKey = "dock-tab";
     private bool _tabRegistered;
     private readonly List<string> _visible = [];   // reveal order; HideCurrent pops the most recent
-    private readonly Timer _sampler;
+    private readonly Timer _sampler, _dialogs;
     private string? _current;
     private bool _emergencyReady;
     private volatile HudSnapshot _hud = HudSnapshot.Empty;
@@ -100,6 +100,8 @@ internal sealed class FocusRuntime : IDisposable
             Guard(() => { _dock.Toggle(); SyncTabKey(); });
         };
 
+        // Dialogs open at any moment; a short tick keeps one from sitting behind the overlay for long.
+        _dialogs = new Timer(_ => Guard(Focus.KeepShownApplications), null, Timeout.Infinite, Timeout.Infinite);
         _sampler = new Timer(_ => Guard(() => { Sample(); RefreshHud(); _dock.Refresh(); SyncTabKey(); }), null, Timeout.Infinite, Timeout.Infinite);
     }
 
@@ -300,6 +302,8 @@ internal sealed class FocusRuntime : IDisposable
     {
         var on = Machine.State is FocusState.Focused or FocusState.SelectorOpen;
         _sampler.Change(on ? TimeSpan.FromSeconds(2) : Timeout.InfiniteTimeSpan, on ? TimeSpan.FromSeconds(2) : Timeout.InfiniteTimeSpan);
+        var tick = on ? TimeSpan.FromMilliseconds(400) : Timeout.InfiniteTimeSpan;
+        _dialogs.Change(tick, tick);
         if (on) RefreshHud();
     }
 
@@ -329,6 +333,7 @@ internal sealed class FocusRuntime : IDisposable
     public void Dispose()
     {
         _sampler.Dispose();
+        _dialogs.Dispose();
         SessionTimer.Dispose();
         _dock.Dispose();
         _unlock.Dispose();

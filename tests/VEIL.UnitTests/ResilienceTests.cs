@@ -240,6 +240,40 @@ public class ResilienceTests
     }
 
     [Fact]
+    public void Showing_and_hiding_an_application_covers_all_its_windows()
+    {
+        var r = new Rig(new FakeOverlayHost());
+        r.Policy = new ApplicationPolicy([new ApplicationRule("c:\\ndev.exe", "NdevTool")]);
+        r.Windows.Windows.Add(FakeWindows.Win("main", "c:\\ndev.exe"));
+        r.Windows.Windows.Add(FakeWindows.Win("second", "c:\\ndev.exe"));
+        r.Focus.FocusOn();
+
+        r.Focus.Reveal("main");
+        Assert.Equal(["main", "second"], r.Focus.RevealedWindowIds.OrderBy(x => x).ToArray());
+
+        r.Focus.Hide("second"); // either window puts the whole application away
+        Assert.Empty(r.Focus.RevealedWindowIds);
+    }
+
+    [Fact]
+    public void Shown_applications_are_kept_consistent_only_while_the_overlay_is_up()
+    {
+        var r = new Rig(new FakeOverlayHost());
+        r.Policy = new ApplicationPolicy([new ApplicationRule("c:\\ndev.exe", "NdevTool")]);
+        r.Windows.Windows.Add(FakeWindows.Win("main", "c:\\ndev.exe"));
+        r.Focus.FocusOn();
+        r.Focus.Reveal("main");
+
+        r.Focus.KeepShownApplications();
+        Assert.Contains("main", r.Windows.Kept);
+
+        r.Windows.Kept.Clear();
+        r.Focus.SetTrayMode(true);
+        r.Focus.KeepShownApplications();
+        Assert.Empty(r.Windows.Kept);
+    }
+
+    [Fact]
     public void Refreshing_the_policy_outside_focus_mode_does_nothing()
     {
         var r = new Rig(new FakeOverlayHost());
